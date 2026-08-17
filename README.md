@@ -59,8 +59,9 @@ python3 -m venv .venv
 # 3. Build the image with the Django app baked in. This is the slow step.
 ./.venv/bin/tutor images build openedx
 
-# 4. Start the platform. This also runs the plugin's init task, which applies the
-#    app's migrations and seeds demo data.
+# 4. Start the platform. Because the app is in INSTALLED_APPS via the entry point,
+#    the platform's own migrate applies our migrations; the plugin's init task then
+#    seeds demo data.
 ./.venv/bin/tutor local launch
 ```
 
@@ -143,26 +144,39 @@ than a permission check that could be skipped. A coach who coaches nobody gets
 
 ## Check the enrollment receiver fires
 
-Enroll a seeded learner in any course and confirm a `LearnerActivity` row appears. The demo
-course that ships with Tutor works:
+You need a course to enroll into. A fresh instance has none, so import the demo course first:
 
 ```bash
-# Enroll the learner. Any enrollment path emits COURSE_ENROLLMENT_CREATED.
-./.venv/bin/tutor local run lms ./manage.py lms enroll_user_in_course \
-  -e learner_north_1@example.com \
-  -c course-v1:OpenedX+DemoX+DemoCourse
-
-# Confirm the receiver wrote a row.
-./.venv/bin/tutor local run lms ./manage.py lms shell -c "
-from nelc.certification.models import LearnerActivity
-for a in LearnerActivity.objects.all():
-    print(a.occurred_at, a.learner_record.user.username, a.event_type, a.course_key, a.context)
-"
+./.venv/bin/tutor local do importdemocourse
 ```
 
-The receiver logs at INFO as `[nelc] recorded enrollment activity: ...`, visible in
-`tutor local logs -f lms`. It no-ops for anyone without a `LearnerRecord`, which is most
-users on any real platform and is not an error.
+Then enroll a seeded learner through the platform's own enrollment path and confirm a
+`LearnerActivity` row appears:
+
+```bash
+./.venv/bin/tutor local exec -T lms ./manage.py lms shell <<'EOF'
+from django.contrib.auth import get_user_model
+from opaque_keys.edx.keys import CourseKey
+from common.djangoapps.student.models import CourseEnrollment
+from nelc.certification.models import LearnerActivity
+
+User = get_user_model()
+course = CourseKey.from_string("course-v1:OpenedX+DemoX+DemoCourse")
+CourseEnrollment.enroll(User.objects.get(username="learner_north_1"), course)
+
+for a in LearnerActivity.objects.select_related("learner_record__user"):
+    print(a.occurred_at, a.learner_record.user.username, a.event_type, a.course_key, a.context)
+EOF
+```
+
+`CourseEnrollment.enroll` is the same call the enrollment API and the instructor dashboard make,
+so this exercises the real signal rather than a synthetic one. Expect one line, and an INFO log
+line reading `[nelc] recorded enrollment activity: learner_record=1 course=...` in
+`tutor local logs -f lms`.
+
+The receiver no-ops for anyone without a `LearnerRecord`, which is most users on any real
+platform and is not an error. To see that, enroll a user who has no learner record and confirm
+the enrollment succeeds while no new `LearnerActivity` row appears.
 
 ## Check the claims without building anything
 
@@ -191,6 +205,27 @@ manual data fix would, and confirms the endpoint still refuses to return that le
 create a partner, tier, coach group and learner record by hand and watch the endpoint
 change without a frontend. `LearnerActivity` is read-only and undeletable there, because it
 is an append-only audit table.
+
+## What was actually verified, and what was not
+
+Everything in this file was run end to end on a clean `TUTOR_ROOT` with Tutor 22.0.1 and
+`OPENEDX_COMMON_VERSION=release/verawood.1` before being written down. Specifically:
+
+| Claim | Result |
+| --- | --- |
+| App loads via the `lms.djangoapp` entry point | `apps.get_app_config('nelc_certification')` resolves to `nelc.certification` |
+| URLs mount under the plugin namespace | `reverse('nelc_certification:coach-own-group')` returns `/api/nelc/v1/coach/me/group/` |
+| Migration applies | `Applying nelc_certification.0001_initial... OK` during the platform's own migrate |
+| Receiver is connected | `COURSE_ENROLLMENT_CREATED.receivers` contains `nelc.certification.receivers.on_course_enrollment_created` |
+| Receiver fires on a real enrollment | `CourseEnrollment.enroll` produced one `LearnerActivity` row per tracked learner, with the event's own timestamp |
+| Receiver no-ops for untracked users | An untracked user enrolled successfully and produced no row |
+| Endpoint returns the coach's own group over HTTP+JWT | `coach_north` got its 3 Northwind learners, `coach_south` its 2 Southwind learners |
+| Coaches cannot see each other's learners | No overlap between the two responses |
+| Unauthenticated access is refused | `HTTP 401` |
+
+Not verified, and I would rather say so than imply otherwise: Kubernetes deployment, anything
+under load, and the two-second coach view, which is a claim about a `LearnerTrackSummary` table
+this slice does not build. The performance argument in the note is reasoning, not a measurement.
 
 ## Tearing it down
 

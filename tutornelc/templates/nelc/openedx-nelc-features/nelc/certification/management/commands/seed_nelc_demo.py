@@ -96,6 +96,17 @@ class Command(BaseCommand):
         )
 
     def _user(self, username):
+        """
+        Get or create an LMS user that is actually usable.
+
+        The UserProfile is not optional. CourseEnrollment.enroll() reads
+        user.profile.name, so a user created without one cannot be enrolled in
+        anything, which would break the enrollment walkthrough in the README.
+        Imported here rather than at module scope so this module stays
+        importable outside edx-platform.
+        """
+        from common.djangoapps.student.models import UserProfile
+
         user, created = User.objects.get_or_create(
             username=username,
             defaults={"email": f"{username}@example.com", "is_active": True},
@@ -103,4 +114,8 @@ class Command(BaseCommand):
         if created:
             user.set_password(PASSWORD)
             user.save(update_fields=["password"])
+
+        UserProfile.objects.get_or_create(
+            user=user, defaults={"name": username.replace("_", " ").title()}
+        )
         return user

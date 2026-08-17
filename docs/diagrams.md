@@ -61,10 +61,11 @@ flowchart LR
 ```
 
 Two details that matter. The Django app is copied rather than rendered as a Tutor template,
-because Tutor would try to interpret any `{{ }}` in Python source as Jinja; hence the
-`ENV_PATTERNS_IGNORE` entry in `plugin.py`. And the copy is delete-then-write, because Tutor's
-template targets overwrite but never delete, so a file removed from the plugin would otherwise
-be baked into the next image forever.
+because Tutor's Jinja pass would try to interpret any `{{ }}` in Python source; it is therefore
+deliberately not registered as an `ENV_TEMPLATE_TARGETS` entry. And the copy is
+delete-then-write, because Tutor's template targets overwrite but never delete, so a file
+removed from the plugin would otherwise stay in the environment and be baked into the next
+image forever.
 
 ## 3. The coach view request path
 

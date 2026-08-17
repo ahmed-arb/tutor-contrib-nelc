@@ -34,6 +34,11 @@ from nelc.certification.models import CoachGroup, LearnerRecord
 
 log = logging.getLogger(__name__)
 
+# JwtAuthentication comes from edx-drf-extensions, which the platform pins
+# (10.6.0 in Verawood) but the standalone check harness in tests/ does not
+# install. Guarding the import is what lets tests/run_checks.py exercise this
+# view without pulling half the platform in. In the LMS the import always
+# succeeds, so the fallback tuple is never the one in use there.
 try:  # pragma: no cover
     from edx_rest_framework_extensions.auth.jwt.authentication import JwtAuthentication
 

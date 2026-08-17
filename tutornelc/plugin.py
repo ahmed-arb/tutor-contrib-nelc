@@ -85,10 +85,16 @@ hooks.Filters.CLI_COMMANDS.add_item(nelc_sync_app)
 # INIT TASKS
 ########################################
 
-# Runs on `tutor local do init` and on `tutor local launch`. Migrations for a
-# Django app installed via plugin are not picked up by the platform's own
-# migrate step in a fresh environment, so we run them explicitly and
-# idempotently. --limit=nelc runs only this.
+# Runs on `tutor local do init` and on `tutor local launch`.
+#
+# The migrate call is belt and braces, not the primary mechanism. Because the
+# app is in INSTALLED_APPS via the lms.djangoapp entry point, the platform's own
+# init already applies our migrations; on a fresh launch you can see
+# "Applying nelc_certification.0001_initial" in the platform's migrate output,
+# and this task then reports nothing to do. It is kept because it makes
+# `tutor local do init --limit=nelc` a complete, self-sufficient way to
+# (re)initialise just this plugin, which is what you want after upgrading it
+# without re-running the whole platform init.
 hooks.Filters.CLI_DO_INIT_TASKS.add_item(
     (
         "lms",
@@ -113,10 +119,13 @@ hooks.Filters.ENV_TEMPLATE_ROOTS.add_items(
     ]
 )
 
-# Note: openedx-nelc-features is deliberately NOT a template target. It is
-# plain Python, not Jinja, and Tutor would try to render any {{ }} it contains.
-# _sync_django_app copies it verbatim instead.
-hooks.Filters.ENV_PATTERNS_IGNORE.add_items([r"(.*/)?openedx-nelc-features(/.*)?"])
+# No ENV_TEMPLATE_TARGETS are registered, so nothing under templates/ is
+# rendered into the Tutor environment, and that is the point.
+# openedx-nelc-features is plain Python: Tutor's Jinja pass would try to
+# interpret any {{ }} in it, and dict/set literals in Python source are exactly
+# the kind of thing that trips that up. _sync_django_app copies it verbatim
+# instead. If a real Jinja template is ever added here, give it its own target
+# directory rather than widening one to cover the app.
 
 
 ########################################
