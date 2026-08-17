@@ -1,0 +1,2 @@
+recursive-include tutornelc/patches *
+recursive-include tutornelc/templates *
