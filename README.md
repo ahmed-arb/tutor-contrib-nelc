@@ -208,19 +208,25 @@ is an append-only audit table.
 
 ## What was actually verified, and what was not
 
-Everything in this file was run end to end on a clean `TUTOR_ROOT` with Tutor 22.0.1 and
-`OPENEDX_COMMON_VERSION=release/verawood.1` before being written down. Specifically:
+Every row below was checked on a **clean instance**: an empty `TUTOR_ROOT/data`, a stock
+`tutor images build openedx`, and `tutor local launch`, with Tutor 22.0.1 and
+`OPENEDX_COMMON_VERSION=release/verawood.1`. Nothing here was verified by patching a running
+container.
 
 | Claim | Result |
 | --- | --- |
 | App loads via the `lms.djangoapp` entry point | `apps.get_app_config('nelc_certification')` resolves to `nelc.certification` |
 | URLs mount under the plugin namespace | `reverse('nelc_certification:coach-own-group')` returns `/api/nelc/v1/coach/me/group/` |
 | Migration applies | `Applying nelc_certification.0001_initial... OK` during the platform's own migrate |
+| Migration matches the models | `makemigrations --check` reports no changes detected |
+| Seed runs from the baked image | 2 partners, 3 tiers, 2 coach groups, 5 learners, 0 activity |
+| Seeded users are actually usable | All 5 have a `UserProfile`, without which they cannot be enrolled |
 | Receiver is connected | `COURSE_ENROLLMENT_CREATED.receivers` contains `nelc.certification.receivers.on_course_enrollment_created` |
-| Receiver fires on a real enrollment | `CourseEnrollment.enroll` produced one `LearnerActivity` row per tracked learner, with the event's own timestamp |
+| Receiver fires on a real enrollment | `CourseEnrollment.enroll` produced one `LearnerActivity` row for the tracked learner, carrying the event's own timestamp, course key and mode |
 | Receiver no-ops for untracked users | An untracked user enrolled successfully and produced no row |
 | Endpoint returns the coach's own group over HTTP+JWT | `coach_north` got its 3 Northwind learners, `coach_south` its 2 Southwind learners |
 | Coaches cannot see each other's learners | No overlap between the two responses |
+| A learner with no tier serialises cleanly | `learner_north_3` returns `tier: null`, `tier_rank: null` |
 | Unauthenticated access is refused | `HTTP 401` |
 
 Not verified, and I would rather say so than imply otherwise: Kubernetes deployment, anything
