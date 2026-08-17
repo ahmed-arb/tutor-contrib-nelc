@@ -164,6 +164,27 @@ The receiver logs at INFO as `[nelc] recorded enrollment activity: ...`, visible
 `tutor local logs -f lms`. It no-ops for anyone without a `LearnerRecord`, which is most
 users on any real platform and is not an error.
 
+## Check the claims without building anything
+
+If you would rather not wait 20 minutes to see whether the scoping actually holds, there is a
+standalone harness that runs the real models, views, serializers, `apps.py` and receiver with
+only the platform-side imports stubbed. It needs no Docker and no `edx-platform`:
+
+```bash
+python3 -m venv .venv-tests
+./.venv-tests/bin/pip install "django>=4.2" djangorestframework django-model-utils
+./.venv-tests/bin/python tests/run_checks.py
+```
+
+19 checks covering coach scoping, cross-partner contamination, the tier gate and the receiver's
+behaviour. It deliberately does **not** claim to prove the two things only a real instance can
+show: that the receiver is genuinely connected to `COURSE_ENROLLMENT_CREATED`, and that the app
+loads through the `lms.djangoapp` entry point. Use the two sections above for those.
+
+The interesting case is `mis-assigned learner is withheld from the response`, which writes a
+cross-partner `coach_group` with `.update()` to bypass `clean()`, the way a bulk import or a
+manual data fix would, and confirms the endpoint still refuses to return that learner.
+
 ## Poke at it in the admin
 
 `http://local.openedx.io/admin/nelc_certification/` exposes all five models, so you can
@@ -185,6 +206,7 @@ tutor-contrib-nelc/
 ├── ARCHITECTURE.md              the two-page note
 ├── docs/erd.md                  data model, ours and the platform's
 ├── docs/diagrams.md             context and coach-view request path
+├── tests/run_checks.py          standalone checks, no Docker needed
 ├── pyproject.toml               tutor.plugin.v1 entry point
 └── tutornelc/
     ├── plugin.py                config, app sync, patches, init task
