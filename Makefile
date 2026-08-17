@@ -2,6 +2,11 @@
 .PHONY: docs
 SRC_DIRS = ./tutornelc
 
+# The vendored Django app under templates/ is excluded from these checks: it is
+# not part of the Tutor plugin's own Python package, it imports edx-platform
+# modules that are not installed here, and mypy --strict on it would only ever
+# report missing imports. tests/run_checks.py is what exercises that code.
+
 # Warning: These checks are not necessarily run on every PR.
 test: test-lint test-types test-format  # Run some static checks.
 
@@ -20,7 +25,7 @@ format: ## Format code
 fix-lint: ## Fix lint errors automatically
 	ruff check --fix ${SRC_DIRS}
 
-version: ## Print the current tutor-cairn version
+version: ## Print the current tutor-contrib-nelc version
 	@python -c 'import io, os; about = {}; exec(io.open(os.path.join("tutornelc", "__about__.py"), "rt", encoding="utf-8").read(), about); print(about["__version__"])'
 
 ESCAPE = 

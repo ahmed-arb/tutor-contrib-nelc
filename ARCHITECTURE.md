@@ -31,47 +31,40 @@ The call that could most reasonably have gone the other way is not building on
 
 ## 2. Approach
 
-**Leave course-discovery alone.** Programs there are catalogue metadata in a separate service with
-its own database, and every query here joins to LMS enrollment, grades and completion. Crossing a
-service boundary for that is what puts the two-second coach view out of reach. It is also the
-deprecated direction: the Proposed Catalog Plugin exists to replace discovery with an in-LMS
-Django plugin, and this is that pattern applied to one client.
+**Leave course-discovery alone.** Its programs are catalogue metadata in a separate service with
+its own database, while every query here joins to LMS enrollment, grades and completion. That
+boundary is what puts the two-second coach view out of reach. It is also the deprecated direction:
+the Proposed Catalog Plugin exists to replace discovery with an in-LMS Django plugin, and this is
+that pattern applied to one client.
 
-**Native stackable pathways are not in Verawood. They are announced for Willow, December 2026.**
-What exists is `open-craft/learning-paths-plugin`: ordered weighted steps, criteria as
-`required_completion` plus `required_grade`, invite before registration, enrollment audit. I
-build alongside it, not on it, for three reasons. Its step is a `CourseKeyField`, so it cannot
-express a vendor step or a course that does not exist yet, and this brief needs both. Its `level`
-is decorative and unenforced at enrollment, so there is no tier gate. Its visibility is
-`invite_only` plus `is_staff`, which cannot express partner or coach scoping. Our Track stays
-isomorphic to it, so Willow is a data migration rather than a redesign.
+**Native stackable pathways are not in Verawood; they are announced for Willow, December 2026.**
+`open-craft/learning-paths-plugin` exists today, but its step is a `CourseKeyField` (no vendor or
+unbuilt steps), its `level` is unenforced (no tier gate), and its visibility is `invite_only` plus
+`is_staff` (no partner scoping). So build alongside it, keeping Track isomorphic so Willow is a
+migration, not a redesign.
 
-**One Tutor plugin installing one LMS Django app** via the `lms.djangoapp` entry point, no fork.
-Where platform behaviour must change: filter, then a method of ours called from core, then
-monkey-patch, then subclass, the ladder WikiLearn used to retire four forks.
+**One Tutor plugin, one LMS Django app** via the `lms.djangoapp` entry point, no fork. To change
+platform behaviour: filter, then our own method called from core, then monkey-patch, then
+subclass, the ladder WikiLearn used to retire four forks.
 
-**Coach view.** A denormalised rollup, one row per learner per track, maintained by event
-receivers rather than aggregated per request: 1200 rows from one index on `(coach_group, track)`.
-Live aggregation over enrollment, grades and completion will not hit two seconds on a phone
-between customer calls, and query tuning does not change that. The cost is seconds of staleness.
+**Coach view:** a denormalised rollup, one row per learner per track, written by receivers, so
+1200 rows come off one index on `(coach_group, track)` instead of being aggregated per request.
+Live aggregation cannot reach two seconds on a phone; the price is seconds of staleness.
 
-**In-course experience.** A plugin slot in `frontend-app-learning` showing tier, distance to the
-standard and a contact-coach action. No content changes, so it works in courses we did not author.
+**In-course:** a `frontend-app-learning` plugin slot showing tier, distance to the standard and a
+contact-coach action, so no course content changes.
 
-**Catalogue.** Extend `frontend-app-catalog`, which landed in Ulmo and ships in `tutor-mfe` v22
-behind `ENABLE_CATALOG_MICROFRONTEND`. Track status is draft, announced, active or retired, so a
-track announced for next quarter with no steps still lists with its tier and vendor. This rules
-discovery out on its own: discovery cannot list something with no course runs.
+**Catalogue:** extend `frontend-app-catalog` (landed in Ulmo, in `tutor-mfe` v22 behind
+`ENABLE_CATALOG_MICROFRONTEND`). Track status is draft, announced, active or retired, so a
+next-quarter track with no steps still lists its tier and vendor, which discovery cannot do.
 
-**Vendor results.** A vendor step has `kind=vendor` and no course key. Results arrive as signed
-attestations, one adapter per vendor, idempotent on `(vendor, vendor_ref, learner)`. We store the
-assertion and the grade, never the content, so evaluation is identical either way.
+**Vendor results:** `kind=vendor` steps carry no course key; results arrive as signed attestations,
+one adapter per vendor, idempotent on `(vendor, vendor_ref, learner)`. We keep the assertion and
+its grade, never the content.
 
-**Certificates and the feed.** Grant on the standard, issue through the credentials service with
-the client's template, driven by our evaluation rather than the per-course certificate path; we
-expose the endpoints `CatalogDataSynchronizer` expects and point `tutor-credentials` at us.
-Notifications ride the platform's notifications app. The program team reads the append-only
-activity table as a feed scoped by partner.
+**Certificates and the feed:** grant on the standard, issue via credentials with the client's
+template through the endpoints `CatalogDataSynchronizer` expects; notifications ride the platform's
+notifications app; the program team reads the append-only activity table as a partner-scoped feed.
 
 ## 3. Where the data lives
 
