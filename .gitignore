@@ -1,7 +1,9 @@
-.*.swp
-!.gitignore
-TODO
-__pycache__
+__pycache__/
+*.py[cod]
 *.egg-info/
-/build/
-/dist/
+build/
+dist/
+.venv/
+venv/
+tutor-root/
+.DS_Store

@@ -1,0 +1,5 @@
+RUN mkdir -p /openedx/edxapps
+COPY --chown=app:app /djangoapp/nelc/openedx-nelc-features/ /openedx/edxapps/openedx-nelc-features/
+# $PIP_COMMAND, not bare pip: Tutor v22 sets PIP_COMMAND="uv pip" and plain pip is
+# not necessarily on PATH in this stage.
+RUN $PIP_COMMAND install /openedx/edxapps/openedx-nelc-features/

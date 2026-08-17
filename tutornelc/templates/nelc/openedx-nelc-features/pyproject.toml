@@ -1,0 +1,25 @@
+[project]
+name = "openedx-nelc-features"
+version = "0.1.0"
+description = "Partner certification domain app for the Open edX LMS"
+requires-python = ">= 3.11"
+# Everything this app needs (Django, DRF, edx-django-utils, openedx-events,
+# django-model-utils, edx-opaque-keys) is already pinned in the openedx image.
+# Declaring them again here risks resolving a different version than the
+# platform runs, so we deliberately declare none.
+dependencies = []
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["nelc*"]
+
+# This is the whole installation mechanism. edx-platform reads the
+# lms.djangoapp entry point group at startup and appends each AppConfig to
+# INSTALLED_APPS, then reads its `plugin_app` dict for URLs, settings and
+# signal receivers. No edx-platform fork, no settings patch, no INSTALLED_APPS
+# edit anywhere.
+[project.entry-points."lms.djangoapp"]
+nelc_certification = "nelc.certification.apps:CertificationConfig"

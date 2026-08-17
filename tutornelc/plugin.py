@@ -1,4 +1,22 @@
+"""
+Tutor plugin for the partner certification platform.
+
+Responsibilities, in order of appearance below:
+
+1. Declare plugin settings (``NELC_*``).
+2. Copy the vendored Django app into the openedx image build context.
+3. Load the patches in ``patches/`` (which install the app and switch it on).
+4. Register an init task that migrates the app and seeds demo rows.
+
+The Django app itself lives under ``templates/nelc/openedx-nelc-features/``.
+Vendoring it here keeps this exercise to a single repository. In a real
+deployment it would be its own versioned repo installed from a pinned tag, the
+way tutor-contrib-wikilearn installs openedx-wikilearn-features. See
+ARCHITECTURE.md, "What I'd defer or decline".
+"""
+
 import os
+import shutil
 from glob import glob
 
 import click
@@ -13,215 +31,98 @@ from .__about__ import __version__
 
 hooks.Filters.CONFIG_DEFAULTS.add_items(
     [
-        # Add your new settings that have default values here.
-        # Each new setting is a pair: (setting_name, default_value).
-        # Prefix your setting names with 'NELC_'.
         ("NELC_VERSION", __version__),
     ]
 )
 
-hooks.Filters.CONFIG_UNIQUE.add_items(
-    [
-        # Add settings that don't have a reasonable default for all users here.
-        # For instance: passwords, secret keys, etc.
-        # Each new setting is a pair: (setting_name, unique_generated_value).
-        # Prefix your setting names with 'NELC_'.
-        # For example:
-        ### ("NELC_SECRET_KEY", "{{ 24|random_string }}"),
-    ]
-)
 
-hooks.Filters.CONFIG_OVERRIDES.add_items(
-    [
-        # Danger zone!
-        # Add values to override settings from Tutor core or other plugins here.
-        # Each override is a pair: (setting_name, new_value). For example:
-        ### ("PLATFORM_NAME", "My platform"),
-    ]
-)
+########################################
+# VENDORED DJANGO APP SYNC
+########################################
+
+# Relative to the Tutor project root. The openedx image build context is
+# env/build/openedx/, so anything under env/build/openedx/djangoapp/ can be
+# COPYied by the openedx-dockerfile-post-python-requirements patch.
+APP_DEST = ("env", "build", "openedx", "djangoapp", "nelc", "openedx-nelc-features")
+APP_SRC = ("templates", "nelc", "openedx-nelc-features")
+
+
+def _sync_django_app(root: str) -> None:
+    """
+    Mirror the vendored Django app into the openedx image build context.
+
+    This is a delete-then-copy rather than a Tutor template target on purpose.
+    ENV_TEMPLATE_TARGETS renders and overwrites, but it never deletes, so a file
+    removed from the plugin would linger in the environment forever and get
+    baked into the next image. Pattern taken from a prior client program
+    implementation I led at Edly/Arbisoft.
+    """
+    dst = os.path.join(root, *APP_DEST)
+    src = str(importlib_resources.files("tutornelc").joinpath(*APP_SRC))
+    if os.path.exists(dst):
+        shutil.rmtree(dst)
+    os.makedirs(os.path.dirname(dst), exist_ok=True)
+    shutil.copytree(src, dst, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+
+
+@hooks.Actions.PROJECT_ROOT_READY.add()
+def _auto_sync_django_app(root: str) -> None:
+    """Re-sync on every tutor command, so the image never builds a stale app."""
+    _sync_django_app(root)
+
+
+@click.command(name="nelc-sync-app", help="Sync openedx-nelc-features into the Tutor env.")
+@click.pass_context
+def nelc_sync_app(context: click.Context) -> None:
+    _sync_django_app(context.obj.root)
+    click.echo("openedx-nelc-features synced.")
+
+
+hooks.Filters.CLI_COMMANDS.add_item(nelc_sync_app)
 
 
 ########################################
-# INITIALIZATION TASKS
+# INIT TASKS
 ########################################
 
-# To add a custom initialization task, create a bash script template under:
-# tutornelc/templates/nelc/tasks/
-# and then add it to the MY_INIT_TASKS list. Each task is in the format:
-# ("<service>", ("<path>", "<to>", "<script>", "<template>"))
-MY_INIT_TASKS: list[tuple[str, tuple[str, ...]]] = [
-    # For example, to add LMS initialization steps, you could add the script template at:
-    # tutornelc/templates/nelc/tasks/lms/init.sh
-    # And then add the line:
-    ### ("lms", ("nelc", "tasks", "lms", "init.sh")),
-]
+# Runs on `tutor local do init` and on `tutor local launch`. Migrations for a
+# Django app installed via plugin are not picked up by the platform's own
+# migrate step in a fresh environment, so we run them explicitly and
+# idempotently. --limit=nelc runs only this.
+hooks.Filters.CLI_DO_INIT_TASKS.add_item(
+    (
+        "lms",
+        """
+echo "NELC: applying partner certification migrations..."
+./manage.py lms migrate nelc_certification
 
-
-# For each task added to MY_INIT_TASKS, we load the task template
-# and add it to the CLI_DO_INIT_TASKS filter, which tells Tutor to
-# run it as part of the `init` job.
-for service, template_path in MY_INIT_TASKS:
-    full_path: str = str(
-        importlib_resources.files("tutornelc")
-        / os.path.join("templates", *template_path)
+echo "NELC: seeding demo partner, tiers, coach group and learners..."
+./manage.py lms seed_nelc_demo
+""",
     )
-    with open(full_path, encoding="utf-8") as init_task_file:
-        init_task: str = init_task_file.read()
-    hooks.Filters.CLI_DO_INIT_TASKS.add_item((service, init_task))
-
-
-########################################
-# DOCKER IMAGE MANAGEMENT
-########################################
-
-
-# Images to be built by `tutor images build`.
-# Each item is a quadruple in the form:
-#     ("<tutor_image_name>", ("path", "to", "build", "dir"), "<docker_image_tag>", "<build_args>")
-hooks.Filters.IMAGES_BUILD.add_items(
-    [
-        # To build `myimage` with `tutor images build myimage`,
-        # you would add a Dockerfile to templates/nelc/build/myimage,
-        # and then write:
-        ### (
-        ###     "myimage",
-        ###     ("plugins", "nelc", "build", "myimage"),
-        ###     "docker.io/myimage:{{ NELC_VERSION }}",
-        ###     (),
-        ### ),
-    ]
-)
-
-
-# Images to be pulled as part of `tutor images pull`.
-# Each item is a pair in the form:
-#     ("<tutor_image_name>", "<docker_image_tag>")
-hooks.Filters.IMAGES_PULL.add_items(
-    [
-        # To pull `myimage` with `tutor images pull myimage`, you would write:
-        ### (
-        ###     "myimage",
-        ###     "docker.io/myimage:{{ NELC_VERSION }}",
-        ### ),
-    ]
-)
-
-
-# Images to be pushed as part of `tutor images push`.
-# Each item is a pair in the form:
-#     ("<tutor_image_name>", "<docker_image_tag>")
-hooks.Filters.IMAGES_PUSH.add_items(
-    [
-        # To push `myimage` with `tutor images push myimage`, you would write:
-        ### (
-        ###     "myimage",
-        ###     "docker.io/myimage:{{ NELC_VERSION }}",
-        ### ),
-    ]
 )
 
 
 ########################################
 # TEMPLATE RENDERING
-# (It is safe & recommended to leave
-#  this section as-is :)
 ########################################
 
 hooks.Filters.ENV_TEMPLATE_ROOTS.add_items(
-    # Root paths for template files, relative to the project root.
     [
         str(importlib_resources.files("tutornelc") / "templates"),
     ]
 )
 
-hooks.Filters.ENV_TEMPLATE_TARGETS.add_items(
-    # For each pair (source_path, destination_path):
-    # templates at ``source_path`` (relative to your ENV_TEMPLATE_ROOTS) will be
-    # rendered to ``source_path/destination_path`` (relative to your Tutor environment).
-    # For example, ``tutornelc/templates/nelc/build``
-    # will be rendered to ``$(tutor config printroot)/env/plugins/nelc/build``.
-    [
-        ("nelc/build", "plugins"),
-        ("nelc/apps", "plugins"),
-    ],
-)
+# Note: openedx-nelc-features is deliberately NOT a template target. It is
+# plain Python, not Jinja, and Tutor would try to render any {{ }} it contains.
+# _sync_django_app copies it verbatim instead.
+hooks.Filters.ENV_PATTERNS_IGNORE.add_items([r"(.*/)?openedx-nelc-features(/.*)?"])
 
 
 ########################################
 # PATCH LOADING
-# (It is safe & recommended to leave
-#  this section as-is :)
 ########################################
 
-# For each file in tutornelc/patches,
-# apply a patch based on the file's name and contents.
 for path in glob(str(importlib_resources.files("tutornelc") / "patches" / "*")):
     with open(path, encoding="utf-8") as patch_file:
         hooks.Filters.ENV_PATCHES.add_item((os.path.basename(path), patch_file.read()))
-
-
-########################################
-# CUSTOM JOBS (a.k.a. "do-commands")
-########################################
-
-# A job is a set of tasks, each of which run inside a certain container.
-# Jobs are invoked using the `do` command, for example: `tutor local do importdemocourse`.
-# A few jobs are built in to Tutor, such as `init` and `createuser`.
-# You can also add your own custom jobs:
-
-
-# To add a custom job, define a Click command that returns a list of tasks,
-# where each task is a pair in the form ("<service>", "<shell_command>").
-# For example:
-### @click.command()
-### @click.option("-n", "--name", default="plugin developer")
-### def say_hi(name: str) -> list[tuple[str, str]]:
-###     """
-###     An example job that just prints 'hello' from within both LMS and CMS.
-###     """
-###     return [
-###         ("lms", f"echo 'Hello from LMS, {name}!'"),
-###         ("cms", f"echo 'Hello from CMS, {name}!'"),
-###     ]
-
-
-# Then, add the command function to CLI_DO_COMMANDS:
-## hooks.Filters.CLI_DO_COMMANDS.add_item(say_hi)
-
-# Now, you can run your job like this:
-#   $ tutor local do say-hi --name="Ahmed Khalid"
-
-
-#######################################
-# CUSTOM CLI COMMANDS
-#######################################
-
-# Your plugin can also add custom commands directly to the Tutor CLI.
-# These commands are run directly on the user's host computer
-# (unlike jobs, which are run in containers).
-
-# To define a command group for your plugin, you would define a Click
-# group and then add it to CLI_COMMANDS:
-
-
-### @click.group()
-### def nelc() -> None:
-###     pass
-
-
-### hooks.Filters.CLI_COMMANDS.add_item(nelc)
-
-
-# Then, you would add subcommands directly to the Click group, for example:
-
-
-### @nelc.command()
-### def example_command() -> None:
-###     """
-###     This is helptext for an example command.
-###     """
-###     print("You've run an example command.")
-
-
-# This would allow you to run:
-#   $ tutor nelc example-command
