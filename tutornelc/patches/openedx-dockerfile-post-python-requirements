@@ -1,9 +1,3 @@
-# Staff Graded Points XBlock: the mechanism the note recommends instead of letting
-# coaches edit progress directly. Verawood does not ship it. Its four dependencies
-# (edx-bulk-grades, markdown, path-py, XBlock) are already pinned by the platform,
-# so this resolves against what is installed rather than moving any pin.
-RUN $PIP_COMMAND install "staff-graded-xblock>=4.0.0,<5.0.0"
-
 RUN mkdir -p /openedx/edxapps
 COPY --chown=app:app /djangoapp/nelc/openedx-nelc-features/ /openedx/edxapps/openedx-nelc-features/
 # $PIP_COMMAND, not bare pip: Tutor v22 sets PIP_COMMAND="uv pip" and plain pip is
