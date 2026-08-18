@@ -204,5 +204,7 @@ All read-only, all on `user_id` or a course key string:
 | completion aggregator | progress within a step | `user_id` + `course_key` |
 | `course_overviews` | display data for a step | `course_key` |
 
-There is no reverse direction. Nothing in `edx-platform` knows this app exists, which is what
-makes an upgrade to Willow a matter of our own migrations rather than a merge.
+No table in `edx-platform` points back at ours, and no platform code imports this app. The one
+inbound path is openedx-events broadcasting `COURSE_ENROLLMENT_CREATED`, which the platform emits
+without knowing who is listening. That asymmetry is what makes an upgrade to Willow a matter of
+our own migrations rather than a merge.

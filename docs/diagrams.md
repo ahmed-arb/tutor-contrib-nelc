@@ -27,7 +27,8 @@ flowchart TB
     catalog -->|"public track list,<br/>incl. announced"| app
     learning --> app
     dashboard --> app
-    app <-->|"user_id, course_key.<br/>Read-only, in-process"| core
+    app -->|"reads enrollment, grades, completion<br/>by user_id and course_key"| core
+    core -->|"openedx-events signals,<br/>e.g. COURSE_ENROLLMENT_CREATED"| app
     app -->|"CERTIFICATE_CREATED,<br/>CatalogDataSynchronizer endpoints"| creds
     vendors -->|"signed attestations,<br/>idempotent per learner+ref"| app
     app -.->|"no dependency"| discovery
