@@ -37,21 +37,33 @@ flowchart TB
     style discovery stroke-dasharray: 5 5,color:#888
 ```
 
-### The landing page, and why it is not in the slice
+### The landing page
 
-The brief asks for the learner's landing page to be the certification dashboard. In [frontend-base](https://github.com/openedx/frontend-base)
-that needs no core change and no redirect override: an app declares the
-`org.openedx.frontend.role.home` role and the shell resolves `/` to it, while a nav tab is a widget
-appended to `org.openedx.frontend.slot.header.desktopPrimaryLinks.v1`, which is the same slot the
-shell's own `PrimaryNavLinks` uses for Courses and Discover.
+Stakeholder request 1, and it is built. Two levers, both owned by this plugin:
 
-Both the role and the tab are contributed by an `App` config exported from an npm package, which
-Tutor installs through the `FRONTEND_APPS` filter. That package is a separate repo, so it is
-outside this plugin and outside this slice. Two caveats for whoever picks it up: [Verawood](https://docs.openedx.org/en/latest/community/release_notes/verawood.html) ships the
-frontend-base `learner-dashboard` app as `enabled: False`, so the shell path is opt-in for now, and
-full MFE conversion to frontend-base is not expected until Xylon in June 2027 (see the [release schedule](https://openedx.atlassian.net/wiki/spaces/COMM/pages/3613392957/Open+edX+release+schedule)). Until then the
-legacy equivalent is a [`frontend-component-header`](https://github.com/openedx/frontend-component-header) plugin slot, which needs an npm package just the
-same.
+1. `student_dashboard()` in `common/djangoapps/student/views/dashboard.py` does
+   `if learner_home_mfe_enabled(): return redirect(settings.LEARNER_HOME_MICROFRONTEND_URL)`. A
+   settings patch points that setting at `/nelc/dashboard/`, and an init task turns on the
+   `learner_home_mfe.enabled` waffle flag. So `/dashboard` lands on our page.
+2. The header tab is a widget appended to
+   `org.openedx.frontend.layout.header_desktop_main_menu.v1` through `tutor-mfe`'s `PLUGIN_SLOTS`,
+   ahead of the platform's own Courses and Discover, which stay where they are.
+
+No fork, no core change and no npm package. The widget is inline JSX written in the Tutor plugin's
+own Python string, which works because a nav tab is just an anchor; the pattern is taken from
+[tutor-indigo-wikilearn](https://github.com/wikimedia/tutor-indigo-wikilearn). An earlier draft of
+this document claimed the tab and the redirect both needed a package outside the plugin. That was
+wrong, and it is recorded here because it changed the shape of the answer: this is configuration,
+not a fork.
+
+Two honest limits. The page behind the route is a placeholder, and because it is a Django page it
+does not render inside the MFE shell, so a real implementation would be a route in the learner
+dashboard MFE. And [frontend-base](https://github.com/openedx/frontend-base) will make this
+cleaner still: an app declares the `org.openedx.frontend.role.home` role and the shell resolves `/`
+to it with no redirect involved. [Verawood](https://docs.openedx.org/en/latest/community/release_notes/verawood.html)
+ships the frontend-base `learner-dashboard` as `enabled: False`, and full conversion is not
+expected until Xylon in June 2027 (see the [release schedule](https://openedx.atlassian.net/wiki/spaces/COMM/pages/3613392957/Open+edX+release+schedule)),
+so the redirect above is the Verawood-era answer rather than the permanent one.
 
 The point of this picture is that our app and the platform are the same process. Every join the
 coach view needs is a local query, not a service call. That is the whole reason discovery is not

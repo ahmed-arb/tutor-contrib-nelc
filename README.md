@@ -23,8 +23,13 @@ Verawood's `requirements/edx/base.txt` at `4.0.0`, so the image ships it and `st
 a registered `xblock.v1` entry point out of the box. A course author enables it per course by
 adding `staffgradedxblock` to the Advanced Module List in Studio. Nothing in the slice uses it yet.
 
-Not here, on purpose: any frontend, the public catalogue, the vendor integration, and the
-track and certification-standard tables. Those are argued in the note.
+Not here, on purpose: the public catalogue, the vendor integration, and the track and
+certification-standard tables. Those are argued in the note.
+
+Frontend work is mostly out of scope too, with one exception. The brief excludes it, but
+stakeholder request 1 is about *where a learner lands*, which is a routing and configuration
+question rather than a UI one, so the landing page and its header tab are here. What is behind
+that route is a placeholder, not a dashboard.
 
 ## Before you run
 
@@ -34,9 +39,9 @@ track and certification-standard tables. Those are argued in the note.
 | Tutor | Any v22.x. Nothing pins a version by hand; see below |
 | Python | 3.10+ on the host, which Tutor v22 requires |
 | Docker | Running, with roughly 8 GB available to it |
-| Other Tutor plugins | None needed. Not `mfe`, not `indigo`. The slice is backend only |
+| Other Tutor plugins | `mfe`, installed and enabled by `make setup`. Needed for the header tab; nothing else in the slice depends on it |
 
-**You will need one `tutor images build openedx`, which takes 15 to 30 minutes.** There is
+**You will need one `tutor images build openedx mfe`, which takes 15 to 30 minutes.** There is
 no way around it and I did not want to fake one: installing a Django app into the LMS means
 the app has to be in the image. That is how this would ship to production, and the brief
 asked to be shown the production path rather than a shortcut. Everything after the build is
