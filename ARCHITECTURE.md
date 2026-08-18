@@ -1,6 +1,6 @@
 # Partner certification platform: architecture note
 
-Open edX Verawood, Tutor v22. ERD and diagrams: [docs/erd.md](docs/erd.md),
+Open edX [Verawood](https://docs.openedx.org/en/latest/community/release_notes/verawood.html), [Tutor v22](https://docs.tutor.edly.io). ERD and diagrams: [docs/erd.md](docs/erd.md),
 [docs/diagrams.md](docs/diagrams.md), kept out of the note to protect the page budget.
 
 ## 1. What I decided for you
@@ -9,7 +9,7 @@ Open edX Verawood, Tutor v22. ERD and diagrams: [docs/erd.md](docs/erd.md),
 "courses taken in order" with "granted on passing a standard, not on finishing every course".
 One model: ordered steps, each required or optional, plus a rule for passing. I assumed the
 rule is a weighted grade threshold across required steps plus a minimum count from optional
-groups, which is the shape the Proposed Catalog Plugin already argues for: "Complete all 2
+groups, which is the shape the [Proposed Catalog Plugin](https://openedx.atlassian.net/wiki/spaces/OEPM/pages/5026938891/Proposed+Catalog+Plugin) already argues for: "Complete all 2
 courses in Core Courses AND Complete at least 1 of 2 courses in Specialization Courses."
 
 **Tiers are ranked, so the gate is a comparison**, not a lookup table:
@@ -27,47 +27,50 @@ membership table with dates. I would rather add it when asked than carry it empt
 observable and progress has nothing to read.
 
 The call that could most reasonably have gone the other way is not building on
-`learning_paths`, below. Without vendor steps, adopting it and patching its gaps wins.
+[`learning_paths`](https://github.com/open-craft/learning-paths-plugin), below. Without vendor steps, adopting it and patching its gaps wins.
 
 ## 2. Approach
 
-**Leave course-discovery alone.** Its programs are catalogue metadata in a separate service with
+**Leave [course-discovery](https://github.com/openedx/course-discovery) alone.** Its programs are catalogue metadata in a separate service with
 its own database, while every query here joins to LMS enrollment, grades and completion. That
 boundary is what puts the two-second coach view out of reach. It is also the deprecated direction:
 the Proposed Catalog Plugin exists to replace discovery with an in-LMS Django plugin, and this is
 that pattern applied to one client.
 
-**Native stackable pathways are not in Verawood; they are announced for Willow, December 2026.**
-`open-craft/learning-paths-plugin` exists today, but its step is a `CourseKeyField` (no vendor or
+**Native stackable pathways are not in Verawood; they are announced for [Willow](https://docs.openedx.org/en/latest/community/release_notes/willow.html), December 2026.**
+[`open-craft/learning-paths-plugin`](https://github.com/open-craft/learning-paths-plugin) exists today, but its step is a `CourseKeyField` (no vendor or
 unbuilt steps), its `level` is unenforced (no tier gate), and its visibility is `invite_only` plus
 `is_staff` (no partner scoping). So build alongside it, keeping Track isomorphic so Willow is a
 migration, not a redesign.
 
 **One Tutor plugin, one LMS Django app** via the `lms.djangoapp` entry point, no fork. To change
 platform behaviour: filter, then our own method called from core, then monkey-patch, then subclass,
-the ladder WikiLearn used to retire four forks.
+the ladder [WikiLearn](https://github.com/wikimedia/tutor-contrib-wikilearn) used to retire four forks.
 
 **Coach view:** a denormalised rollup, one row per learner per track, written by receivers, so
 1200 rows come off one index on `(coach_group, track)` instead of being aggregated per request.
 Live aggregation cannot reach two seconds on a phone; the price is seconds of staleness.
 
-**In-course:** a `frontend-app-learning` plugin slot showing tier, distance to the standard and a
+**In-course:** a [`frontend-app-learning`](https://github.com/openedx/frontend-app-learning) plugin slot showing tier, distance to the standard and a
 contact-coach action, so no course content changes.
 
-**Landing page:** a frontend-base app declaring the `org.openedx.frontend.role.home` role, its tab
+**Landing page:** a [frontend-base](https://github.com/openedx/frontend-base) app declaring the `org.openedx.frontend.role.home` role, its tab
 appended to the header's `desktopPrimaryLinks` slot ahead of Courses and Discover. The shell
 resolves `/` from whichever app holds that role, so no core change and no redirect override.
 Outside the slice because tab and role ship as an npm package installed via `FRONTEND_APPS`.
 
-**Catalogue:** extend `frontend-app-catalog` (landed in Ulmo, in `tutor-mfe` v22 behind
-`ENABLE_CATALOG_MICROFRONTEND`). Track status is draft, announced, active or retired, so a
-next-quarter track with no steps still lists its tier and vendor, which discovery cannot do.
+**Catalogue:** extend [`frontend-app-catalog`](https://github.com/openedx/frontend-app-catalog),
+the [Course About, Index and Course Catalog MFE conversion](https://openedx.atlassian.net/wiki/spaces/OEPM/pages/5010718766/Proposal+Course+About+page+Index+Page+and+Course+Catalog+MFE+conversion)
+that landed in [Ulmo](https://docs.openedx.org/en/latest/community/release_notes/ulmo.html) and ships
+in [`tutor-mfe`](https://github.com/overhangio/tutor-mfe) v22 behind `ENABLE_CATALOG_MICROFRONTEND`.
+Track status is draft, announced, active or retired, so a next-quarter track with no steps still
+lists its tier and vendor, which discovery cannot do.
 
 **Vendor results:** `kind=vendor` steps carry no course key; results arrive as signed attestations,
 one adapter per vendor, idempotent on `(vendor, vendor_ref, learner)`. We keep the assertion and
 its grade, never the content.
 
-**Certificates and the feed:** grant on the standard, issue via credentials with the client's
+**Certificates and the feed:** grant on the standard, issue via the [credentials service](https://github.com/openedx/credentials) with the client's
 template through the endpoints `CatalogDataSynchronizer` expects. Notifications ride the platform's
 notifications app; the program team reads the activity table as a partner-scoped feed.
 
@@ -81,7 +84,7 @@ coach group, and no name, email or employee ID. `Track`, `TrackStep`, `TrackStep
 soft-deleted; `LearnerTrackSummary` is the rollup the coach view reads; `LearnerActivity` is
 append-only and is both the feed and the rollup's source; `Certification` records grants.
 
-Steps reference courses by key string, per the Catalog Plugin's rule that a catalogue holds
+Steps reference courses by key string, per the [Catalog Plugin](https://openedx.atlassian.net/wiki/spaces/OEPM/pages/5026938891/Proposed+Catalog+Plugin)'s rule that a catalogue holds
 "references to courses, but will not store them directly to ensure data integrity and never be
 out of date, like discovery". Every join to the platform is on `user_id` or a course key,
 read-only: `auth_user`, `student_courseenrollment`, `grades_persistentcoursegrade`, completion
@@ -91,13 +94,14 @@ aggregator, `course_overviews`.
 
 **Decline the mechanism, not the need: coaches editing progress directly.** A certification whose
 progress its reviewer can set is not a certification. Give the offline work a graded home instead:
-a `StaffGradedXBlock` step, staff-scored via CSV import, whose `weight` caps how far it can move the
-standard. The coach scores that one block and cannot touch other steps, completion or the tier.
-Scores land in `grades_persistentcoursegrade` like any other, so the rollup recomputes with no
-special case and `PERSISTENT_GRADE_SUMMARY_CHANGED` feeds the activity table. Residual risk worth
-naming: grading needs a course staff role, which is broader than one block, so offline-graded steps
-belong in their own course to keep that grant narrow. One line in our dockerfile patch installs the
-block, which Verawood does not ship.
+a [`StaffGradedXBlock`](https://github.com/openedx/staff-graded-xblock) step, staff-scored via CSV
+import, whose `weight` caps how far it can move the standard. The coach scores that one block and
+cannot touch other steps, completion or the tier. Scores land in `grades_persistentcoursegrade`
+like any other, so the rollup recomputes with no special case and
+`PERSISTENT_GRADE_SUMMARY_CHANGED` feeds the activity table. Residual risk worth naming: grading
+needs a course staff role, which is broader than one block, so offline-graded steps belong in
+their own course to keep that grant narrow. Costs nothing to adopt: the block is already pinned in
+Verawood's base requirements.
 
 **Decline: employee IDs on the learner record.** Partner-controlled identifiers for people who
 are not our users, with no retention agreement, which would subject our table to each partner's

@@ -39,7 +39,7 @@ flowchart TB
 
 ### The landing page, and why it is not in the slice
 
-The brief asks for the learner's landing page to be the certification dashboard. In frontend-base
+The brief asks for the learner's landing page to be the certification dashboard. In [frontend-base](https://github.com/openedx/frontend-base)
 that needs no core change and no redirect override: an app declares the
 `org.openedx.frontend.role.home` role and the shell resolves `/` to it, while a nav tab is a widget
 appended to `org.openedx.frontend.slot.header.desktopPrimaryLinks.v1`, which is the same slot the
@@ -47,10 +47,10 @@ shell's own `PrimaryNavLinks` uses for Courses and Discover.
 
 Both the role and the tab are contributed by an `App` config exported from an npm package, which
 Tutor installs through the `FRONTEND_APPS` filter. That package is a separate repo, so it is
-outside this plugin and outside this slice. Two caveats for whoever picks it up: Verawood ships the
+outside this plugin and outside this slice. Two caveats for whoever picks it up: [Verawood](https://docs.openedx.org/en/latest/community/release_notes/verawood.html) ships the
 frontend-base `learner-dashboard` app as `enabled: False`, so the shell path is opt-in for now, and
-full MFE conversion to frontend-base is not expected until Xylon in June 2027. Until then the
-legacy equivalent is a `frontend-component-header` plugin slot, which needs an npm package just the
+full MFE conversion to frontend-base is not expected until Xylon in June 2027 (see the [release schedule](https://openedx.atlassian.net/wiki/spaces/COMM/pages/3613392957/Open+edX+release+schedule)). Until then the
+legacy equivalent is a [`frontend-component-header`](https://github.com/openedx/frontend-component-header) plugin slot, which needs an npm package just the
 same.
 
 The point of this picture is that our app and the platform are the same process. Every join the
@@ -59,7 +59,7 @@ in the solid part of the diagram.
 
 ## 2. How it installs
 
-No `edx-platform` fork anywhere in this path.
+No [`edx-platform`](https://github.com/openedx/edx-platform) fork anywhere in this path.
 
 ```mermaid
 flowchart LR

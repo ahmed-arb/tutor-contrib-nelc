@@ -5,7 +5,7 @@ including the tables the note argues for but the slice does not build.
 
 **Bold** entities below are built and migrated. The rest are design only. Nothing in this app
 holds a foreign key into a platform table; the boundary is drawn with `user_id` and course key
-strings, following the Proposed Catalog Plugin's rule that a catalogue keeps "references to
+strings, following the [Proposed Catalog Plugin](https://openedx.atlassian.net/wiki/spaces/OEPM/pages/5026938891/Proposed+Catalog+Plugin)'s rule that a catalogue keeps "references to
 courses, but will not store them directly to ensure data integrity and never be out of date,
 like discovery".
 
@@ -187,7 +187,7 @@ erDiagram
 
 It is the only answer to "under two seconds for 200 learners across 6 tracks" that survives a
 phone on a customer site. Computed live, that view is a fan-out across
-`student_courseenrollment`, `grades_persistentcoursegrade`, the completion aggregator and
+`student_courseenrollment`, `grades_persistentcoursegrade`, the [completion aggregator](https://github.com/open-craft/openedx-completion-aggregator) and
 `VendorAttestation`, per learner per track. Precomputed, it is 1200 rows on one index. It is
 maintained by the same receivers that write `LearnerActivity`, and `updated_at` lets the UI say
 how stale it is rather than pretending it is live.
@@ -204,7 +204,7 @@ All read-only, all on `user_id` or a course key string:
 | completion aggregator | progress within a step | `user_id` + `course_key` |
 | `course_overviews` | display data for a step | `course_key` |
 
-No table in `edx-platform` points back at ours, and no platform code imports this app. The one
-inbound path is openedx-events broadcasting `COURSE_ENROLLMENT_CREATED`, which the platform emits
-without knowing who is listening. That asymmetry is what makes an upgrade to Willow a matter of
+No table in [`edx-platform`](https://github.com/openedx/edx-platform) points back at ours, and no platform code imports this app. The one
+inbound path is [openedx-events](https://github.com/openedx/openedx-events) broadcasting `COURSE_ENROLLMENT_CREATED`, which the platform emits
+without knowing who is listening. That asymmetry is what makes an upgrade to [Willow](https://docs.openedx.org/en/latest/community/release_notes/willow.html) a matter of
 our own migrations rather than a merge.

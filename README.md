@@ -11,8 +11,14 @@ Read the note first if you want to know why the slice stops where it does.
 - **Five models**: `PartnerCompany`, `Tier`, `CoachGroup`, `LearnerRecord`, `LearnerActivity`.
 - **One authenticated endpoint**: `GET /api/nelc/v1/coach/me/group/`, which returns the
   requesting coach's own group and refuses to expose anyone else's.
-- **One enrollment-reactive receiver**: on openedx-events `COURSE_ENROLLMENT_CREATED`,
+- **One enrollment-reactive receiver**: on [openedx-events](https://github.com/openedx/openedx-events) `COURSE_ENROLLMENT_CREATED`,
   writes a `LearnerActivity` row for the enrolling learner.
+
+Nothing extra is installed for the offline-grading recommendation in the note:
+[`staff-graded-xblock`](https://github.com/openedx/staff-graded-xblock) is already pinned in
+Verawood's `requirements/edx/base.txt` at `4.0.0`, so the image ships it and `staffgradedxblock` is
+a registered `xblock.v1` entry point out of the box. A course author enables it per course by
+adding `staffgradedxblock` to the Advanced Module List in Studio. Nothing in the slice uses it yet.
 
 Not here, on purpose: any frontend, the public catalogue, the vendor integration, and the
 track and certification-standard tables. Those are argued in the note.
@@ -33,7 +39,7 @@ the app has to be in the image. That is how this would ship to production, and t
 asked to be shown the production path rather than a shortcut. Everything after the build is
 fast.
 
-The plugin does not fork or patch `edx-platform`. The app registers itself through the
+The plugin does not fork or patch [`edx-platform`](https://github.com/openedx/edx-platform). The app registers itself through the
 `lms.djangoapp` entry point, which edx-platform reads at startup to extend `INSTALLED_APPS`,
 mount URLs, load settings and connect signal receivers. There is no settings patch for any
 of that.
@@ -193,7 +199,7 @@ the enrollment succeeds while no new `LearnerActivity` row appears.
 
 If you would rather not wait 20 minutes to see whether the scoping actually holds, there is a
 standalone harness that runs the real models, views, serializers, `apps.py` and receiver with
-only the platform-side imports stubbed. It needs no Docker and no `edx-platform`:
+only the platform-side imports stubbed. It needs no Docker and no [`edx-platform`](https://github.com/openedx/edx-platform):
 
 ```bash
 # A second venv on purpose: these deps are not in the Tutor one, and the harness
