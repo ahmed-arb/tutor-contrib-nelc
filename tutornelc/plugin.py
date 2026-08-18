@@ -141,10 +141,21 @@ print('NELC: admin password set')
 # Adds a Certification tab to the learner-facing header, ahead of the platform's
 # own Courses and Discover links, which stay where they are.
 #
-# The widget is written inline here rather than shipped as an npm package. That is
-# possible because a nav tab is just an anchor; frontend-plugin-framework evaluates
+# This is a proof of concept, not the shape a real implementation should take. It
+# works because a nav tab is just an anchor: frontend-plugin-framework evaluates
 # this string inside env.config.jsx, so a plain arrow component needs no build of
 # our own. Pattern taken from tutor-indigo-wikilearn.
+#
+# Why it does not generalise, and what to build instead: the tab has to be injected
+# into every MFE that should show it, one at a time, and it only reaches MFEs that
+# render the header's layout slots. frontend-app-catalog does not: it exposes its
+# own org.openedx.frontend.catalog.* content slots and no layout.header_* slot at
+# all, so "Discover new" cannot show this tab however it is configured. Listing
+# catalog below would be dead config.
+#
+# The real implementation is our own frontend app registered through
+# tutormfe.hooks.MFE_APPS.add(), which owns its routes and inherits the shell
+# chrome instead of borrowing another app's header. See ARCHITECTURE.md.
 #
 # tutor-mfe is an optional dependency: without it there are no MFEs to inject into,
 # and the backend slice still works, so the import is guarded rather than required.

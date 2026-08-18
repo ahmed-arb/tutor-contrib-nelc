@@ -1,0 +1,16 @@
+# Stakeholder request 1: the learner's landing page is the certification dashboard.
+#
+# student_dashboard() does
+# `if learner_home_mfe_enabled(): return redirect(settings.LEARNER_HOME_MICROFRONTEND_URL)`,
+# so pointing that setting at our page and turning the flag on is the whole change.
+# The flag is enabled by this plugin's init task. No fork and no core patch.
+#
+# This lives in the *production* and *development* hooks rather than the common one
+# because tutor-mfe sets the same setting from openedx-lms-production-settings,
+# which renders after openedx-lms-common-settings and would otherwise overwrite us.
+#
+# Captured first so the page can link to the real learner dashboard. With tutor-mfe
+# enabled this is its MFE URL; without it, None, and the page says so instead of
+# linking to /dashboard, which would bounce back here.
+NELC_ORIGINAL_LEARNER_HOME_URL = LEARNER_HOME_MICROFRONTEND_URL
+LEARNER_HOME_MICROFRONTEND_URL = LMS_ROOT_URL + "/nelc/dashboard/"

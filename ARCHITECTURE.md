@@ -57,10 +57,12 @@ contact-coach action, so no course content changes.
 **Landing page:** `student_dashboard()` redirects `/dashboard` to
 `settings.LEARNER_HOME_MICROFRONTEND_URL` whenever the `learner_home_mfe.enabled` waffle flag is
 on, so pointing that setting at our page and turning the flag on is the whole change. Both are
-this plugin's: a settings patch and an init task. The header tab is inline JSX injected through
-`PLUGIN_SLOTS` into `org.openedx.frontend.layout.header_desktop_main_menu.v1`, ahead of Courses
-and Discover, which stay. No fork, no core change and no npm package, since a tab is just an
-anchor. Built and verified; the page itself is a placeholder.
+this plugin's: a settings patch and an init task, no core change. The header tab is inline JSX
+injected through `PLUGIN_SLOTS`, and it is a proof of concept rather than the design: it must be
+injected per MFE and only reaches those rendering the header layout slots, which
+`frontend-app-catalog` does not, so Discover cannot show it. The real version is our own frontend
+app registered via `MFE_APPS.add()`, owning its routes and inheriting the shell chrome instead of
+borrowing another app's header and a placeholder Django page.
 
 **Catalogue:** extend [`frontend-app-catalog`](https://github.com/openedx/frontend-app-catalog),
 the [Course About, Index and Course Catalog MFE conversion](https://openedx.atlassian.net/wiki/spaces/OEPM/pages/5010718766/Proposal+Course+About+page+Index+Page+and+Course+Catalog+MFE+conversion)

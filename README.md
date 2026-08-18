@@ -14,6 +14,9 @@ Read the note first if you want to know why the slice stops where it does.
 - **The learner's landing page**: `GET /nelc/dashboard/`, a placeholder certification dashboard
   with a Certification tab ahead of the platform's Courses and Discover. `/dashboard` redirects
   here, via a settings patch plus a waffle flag this plugin sets. No fork and no core change.
+  It is a plain Django page, so it carries its own minimal nav and **not** the platform header,
+  branding, user menu or footer. A real implementation would be a route inside the learner
+  dashboard MFE so it inherits the shell chrome; this proves the routing, not the chrome.
 - **One enrollment-reactive receiver**: on [openedx-events](https://github.com/openedx/openedx-events) `COURSE_ENROLLMENT_CREATED`,
   writes a `LearnerActivity` row for the enrolling learner.
 
@@ -276,15 +279,18 @@ container.
 | Coaches cannot see each other's learners | No overlap between the two responses |
 | A learner with no tier serialises cleanly | `learner_north_3` returns `tier: null`, `tier_rank: null` |
 | Unauthenticated access is refused | `HTTP 401` |
-| `/dashboard` lands the learner on the certification dashboard | `302` to `/nelc/dashboard/`, which returns `200` |
+| `/dashboard` lands the learner on the certification dashboard | `302` to `/nelc/dashboard/`, which returns `200`, with `mfe` enabled |
+| Signing in lands there too | the authn MFE redirects to `LMS_BASE_URL/dashboard`, which redirects on to us |
 | The landing page requires login | anonymous gets `302` to `/login?next=/nelc/dashboard/` |
 | The landing page's own tabs are in the requested order | Certification (current), Courses, Discover new |
 
-**Not yet verified: the header tab in the MFE.** Confirmed so far: the slot config generates into
-`env.config.jsx`, the widget compiles into the served learner-dashboard bundle, and the slot id
-matches the `@edx/frontend-component-header` 8.2.1 that Verawood pins. Not confirmed: that it
-mounts and appears in the header. Two bugs were found by looking at it in a browser, which is why
-this row is honest rather than green:
+**The header tab is a proof of concept.** It renders in the learner-dashboard header and login
+lands on the certification dashboard, both confirmed in a browser. But it has to be injected per
+MFE, and it only reaches MFEs that render the header's layout slots. `frontend-app-catalog` does
+not, so **"Discover new" cannot show the tab**. The real implementation is our own frontend app
+registered via `MFE_APPS.add()`; see [docs/diagrams.md](docs/diagrams.md).
+
+**Two bugs stood between "the code is there" and "it renders", worth knowing if you change it:**
 
 - `getConfig` is not in scope in `env.config.jsx`, so the widget threw a `ReferenceError` and the
   header's error boundary showed "An unexpected error occurred" with no tab. Fixed by importing it
@@ -294,11 +300,10 @@ this row is honest rather than green:
   enabled, because the host block is new to its config. **If MFEs come up blank, run
   `tutor local restart caddy`.** This is the likeliest thing to trip you up on a first run.
 
-To check the tab: sign in at http://local.openedx.io as `admin` / `admin`, then open
-http://apps.local.openedx.io/learner-dashboard/ directly. `/dashboard` will not get you there,
-since this plugin redirects it. The main menu should read Certification, then Courses and Discover.
-If Certification is missing, suspect the slot id first: older releases used the short name
-`desktop_main_menu_slot`, and it is a one-line change in `tutornelc/plugin.py`.
+To see it: sign in at http://local.openedx.io as `admin` / `admin`, which lands on the
+certification dashboard, then open http://apps.local.openedx.io/learner-dashboard/ directly.
+`/dashboard` will not get you there, since this plugin redirects it. The main menu reads
+Certification, then Courses and Discover.
 
 Also not verified: Kubernetes, anything under load, and the two-second coach view, which is a claim
 about a `LearnerTrackSummary` table this slice does not build. The performance argument in the note
@@ -318,6 +323,7 @@ tutor-contrib-nelc/
 ├── ARCHITECTURE.md              the two-page note
 ├── docs/erd.md                  data model, ours and the platform's
 ├── docs/implementation-plan.md  what is not built, in the order I would build it
+├── llms.txt                     map of the repo for LLMs, per llmstxt.org
 ├── docs/diagrams.md             context and coach-view request path
 ├── tests/run_checks.py          standalone checks, no Docker needed
 ├── pyproject.toml               tutor.plugin.v1 entry point
