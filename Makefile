@@ -31,18 +31,30 @@ version: ## Print the current tutor-contrib-nelc version
 ######## Demo instance
 
 PYTHON ?= python3
-TUTOR_VERSION ?= 22.0.1
-TUTOR_MFE_VERSION ?= 22.0.0
 
-# This target installs into whatever virtualenv is active and configures whatever
-# TUTOR_ROOT is exported, and refuses to run if either is missing. Both are your
-# shell's state, which a Makefile cannot set: every recipe line runs in its own
-# subshell. Rather than create a venv you then have to activate anyway, or default
-# TUTOR_ROOT to something your later `tutor` commands would not agree with, it
-# asks you to set both first and then uses exactly what you set.
+# No version numbers live in this file, on purpose.
 #
-# TUTOR_ROOT matters most if you are reviewing several submissions: give each one
-# its own root or they share a config, a database and a set of Docker volumes.
+# Tutor's version range is declared once, in pyproject.toml, as this plugin's own
+# dependency. `pip install -e .` therefore installs a compatible Tutor, and a CI
+# script that runs the same command gets the same answer without duplicating a pin
+# that could drift.
+#
+# tutor-mfe is not pinned here either. `tutor plugins install mfe` reads the
+# release-specific plugin index, which for Verawood carries
+# `src: tutor-mfe>=22.0.0,<23.0.0`, so upstream decides what is compatible rather
+# than us guessing and going stale.
+#
+# The guards below exist because a Makefile cannot set your shell's environment:
+# every recipe line runs in its own subshell. Rather than create a venv you then
+# have to activate anyway, or default TUTOR_ROOT to something your later `tutor`
+# commands would disagree with, this uses exactly what you set.
+#
+# TUTOR_ROOT matters most when reviewing several submissions: give each its own
+# root or they share a config, a database and a set of Docker volumes.
+#
+# `tutor config save` runs first because the plugin index cache lives under
+# TUTOR_ROOT, so `tutor plugins update` needs the root to exist. It runs again at
+# the end to regenerate the environment with both plugins enabled.
 
 setup: ## Install Tutor, tutor-mfe and this plugin into the active venv, then enable and configure
 	@if [ -z "$$VIRTUAL_ENV" ]; then \
@@ -62,8 +74,10 @@ setup: ## Install Tutor, tutor-mfe and this plugin into the active venv, then en
 		exit 1; \
 	fi
 	pip install --upgrade --quiet pip
-	pip install --quiet "tutor==$(TUTOR_VERSION)" "tutor-mfe==$(TUTOR_MFE_VERSION)"
 	pip install --quiet -e .
+	tutor config save
+	tutor plugins update
+	tutor plugins install mfe
 	tutor plugins enable nelc mfe
 	tutor config save
 	@echo

@@ -31,7 +31,7 @@ track and certification-standard tables. Those are argued in the note.
 | Assumption | Value |
 | --- | --- |
 | Open edX release | Verawood (`OPENEDX_COMMON_VERSION` resolves to `release/verawood.1`) |
-| Tutor | v22.0.1 (any v22.x should work; the plugin declares `tutor>=22.0.0,<23.0.0`) |
+| Tutor | Any v22.x. Nothing pins a version by hand; see below |
 | Python | 3.10+ on the host, which Tutor v22 requires |
 | Docker | Running, with roughly 8 GB available to it |
 | Other Tutor plugins | None needed. Not `mfe`, not `indigo`. The slice is backend only |
@@ -57,7 +57,7 @@ python3 -m venv .venv
 source .venv/bin/activate
 export TUTOR_ROOT="$PWD/tutor-root"
 
-make setup                          # Tutor v22, tutor-mfe, this plugin, enabled and configured
+make setup                          # installs and configures Tutor, tutor-mfe and this plugin
 tutor images build openedx mfe      # 15 to 30 minutes, and unavoidable
 tutor local launch
 ```
@@ -71,6 +71,16 @@ venv it creates and activates is gone by the time you type the next command. Rat
 it, `make setup` installs into whatever venv is active and configures whatever `TUTOR_ROOT` is
 exported, and **refuses to run if either is missing**, printing the line you need. That way your
 shell and the Makefile cannot disagree about which Python or which instance they mean.
+
+### Where the versions come from
+
+No version number is written down twice. `pyproject.toml` declares
+`tutor>=22.0.0,<23.0.0` as this plugin's own dependency, so `pip install -e .` installs a
+compatible Tutor and a CI job running the same command gets the same answer. `tutor-mfe` is not
+pinned here at all: `tutor plugins install mfe` reads the release-specific plugin index, which for
+Verawood carries `src: tutor-mfe>=22.0.0,<23.0.0`, so upstream decides what is compatible instead
+of this repo guessing and going stale. On a clean venv that currently resolves to Tutor 22.0.1 and
+tutor-mfe 22.0.0.
 
 `TUTOR_ROOT` is worth setting deliberately. If you are reviewing several submissions, each needs
 its own root, or they share a config file, a MySQL database and a set of Docker volumes. One note
