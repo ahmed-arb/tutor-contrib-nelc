@@ -202,14 +202,16 @@ class LearnerActivity(models.Model):
     activity and outcomes", and it is also the substrate the denormalised
     LearnerTrackSummary rollup would be built from.
 
-    Append-only on purpose: no updated field, no soft delete. If a coach
-    adjusts a learner's progress, that is a new row stating who did it, never an
-    edit to an old one. See ARCHITECTURE.md on stakeholder request 2.
+    Append-only on purpose: no updated field, no soft delete. Offline work a
+    coach signs off is not an edit to a learner's progress; it is a score on a
+    StaffGradedXBlock step, which arrives here as a new row naming the coach as
+    actor. See ARCHITECTURE.md on stakeholder request 2.
     """
 
     ENROLLED = "course_enrollment_created"
     STEP_COMPLETED = "step_completed"
     TIER_CHANGED = "tier_changed"
+    # A staff-graded score for offline work, not a free-hand progress edit.
     COACH_ADJUSTMENT = "coach_adjustment"
 
     EVENT_TYPE_CHOICES = [

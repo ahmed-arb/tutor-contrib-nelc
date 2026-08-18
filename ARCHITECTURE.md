@@ -89,12 +89,15 @@ aggregator, `course_overviews`.
 
 ## 4. What I would defer or decline
 
-**Decline: coaches editing progress directly.** A certification whose progress is set by its
-reviewer is not a certification, and the program team's record becomes unfalsifiable. Instead a
-coach records an offline completion as an attestation with a reason: an append-only row naming
-them as actor, feeding the standard as evidence of a known kind. Same outcome honestly,
-auditable dishonestly. If the client insists, direct edits must at least be a distinct event
-type visible on the certificate's evidence trail.
+**Decline the mechanism, not the need: coaches editing progress directly.** A certification whose
+progress its reviewer can set is not a certification. Give the offline work a graded home instead:
+a `StaffGradedXBlock` step, staff-scored via CSV import, whose `weight` caps how far it can move the
+standard. The coach scores that one block and cannot touch other steps, completion or the tier.
+Scores land in `grades_persistentcoursegrade` like any other, so the rollup recomputes with no
+special case and `PERSISTENT_GRADE_SUMMARY_CHANGED` feeds the activity table. Residual risk worth
+naming: grading needs a course staff role, which is broader than one block, so offline-graded steps
+belong in their own course to keep that grant narrow. One line in our dockerfile patch installs the
+block, which Verawood does not ship.
 
 **Decline: employee IDs on the learner record.** Partner-controlled identifiers for people who
 are not our users, with no retention agreement, which would subject our table to each partner's
