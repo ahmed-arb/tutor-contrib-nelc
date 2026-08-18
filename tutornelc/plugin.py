@@ -32,6 +32,12 @@ from .__about__ import __version__
 hooks.Filters.CONFIG_DEFAULTS.add_items(
     [
         ("NELC_VERSION", __version__),
+        # Creates a superuser admin/admin during init so a reviewer can log in and
+        # click around immediately. True by default because this repo exists to be
+        # reviewed, but it is a trivially guessable superuser: set it to false for
+        # anything that is not a throwaway local instance.
+        #   tutor config save --set NELC_CREATE_DEMO_ADMIN=false
+        ("NELC_CREATE_DEMO_ADMIN", True),
     ]
 )
 
@@ -109,6 +115,20 @@ echo "NELC: seeding demo partner, tiers, coach group and learners..."
 # only honours LEARNER_HOME_MICROFRONTEND_URL when this flag is on. Idempotent.
 echo "NELC: enabling learner_home_mfe.enabled so /dashboard redirects to us..."
 ./manage.py lms waffle_flag --create --everyone learner_home_mfe.enabled
+
+{% if NELC_CREATE_DEMO_ADMIN %}
+# Demo superuser so a reviewer can sign in without extra steps. Idempotent: the
+# password is reset on every init so it is always the documented one.
+echo "NELC: creating demo superuser admin/admin..."
+./manage.py lms manage_user admin admin@example.com --superuser --staff
+./manage.py lms shell -c "
+from django.contrib.auth import get_user_model
+u = get_user_model().objects.get(username='admin')
+u.set_password('admin')
+u.save()
+print('NELC: admin password set')
+"
+{% endif %}
 """,
     )
 )

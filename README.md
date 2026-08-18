@@ -49,51 +49,60 @@ of that.
 
 ## Bring it up on a clean instance
 
-These commands use a dedicated `TUTOR_ROOT` so that nothing touches an existing Tutor
-environment you may already have. Run them from the directory you cloned into.
-
 ```bash
-# 0. Isolate this instance. Use any path you like; keep it exported for every step.
-export TUTOR_ROOT="$PWD/tutor-root"
+git clone https://github.com/ahmed-arb/tutor-contrib-nelc.git
+cd tutor-contrib-nelc
 
-# 1. Tutor v22 in its own virtualenv, so the plugin cannot collide with another install.
-python3 -m venv .venv
+make setup                          # venv, Tutor v22, tutor-mfe, this plugin, enabled and configured
 source .venv/bin/activate
-pip install "tutor==22.0.1"
-
-# 2. Confirm you are driving the right Tutor at the right root before the slow step.
-which tutor              # should be the tutor inside .venv
-tutor --version          # should be 22.0.1
-tutor config printroot   # should be the TUTOR_ROOT you exported in step 0
-
-# 3. Install this plugin and switch it on.
-pip install -e ./tutor-contrib-nelc
-tutor plugins enable nelc
-tutor config save
-
-# 4. Build the image with the Django app baked in. This is the slow step.
-tutor images build openedx
-
-# 5. Start the platform. Because the app is in INSTALLED_APPS via the entry point,
-#    the platform's own migrate applies our migrations; the plugin's init task then
-#    seeds demo data.
+tutor images build openedx mfe      # 15 to 30 minutes, and unavoidable
 tutor local launch
 ```
 
-Step 2 is not ceremony. Both the activation and `TUTOR_ROOT` are shell state that dies with the
-terminal, and a `tutor` already on your PATH may be a different version pointed at a different
-root. Getting that wrong is quiet rather than loud: you would build one environment and launch
-another. **In any new terminal, re-run the `export` and `source` lines before anything else.**
+Then open **http://local.openedx.io** and sign in as **`admin` / `admin`**.
 
-`tutor local launch` is interactive on first run and will ask for hostnames; the defaults
-(`local.openedx.io`, `studio.local.openedx.io`) are fine and are what the commands below
-assume.
+`make setup` is the only wrapper, because it is the only part that is fiddly: a virtualenv, Tutor
+and tutor-mfe pinned to versions that match, this plugin installed editable, both plugins enabled,
+and a config saved. The build and launch are plain Tutor commands, deliberately not wrapped, so
+you can see exactly what is running.
 
-If you ever need to re-run just this plugin's migrations and seed without a full launch:
+The `source` line is not optional and cannot be folded into `make setup`: every make recipe line
+runs in its own subshell, so nothing it activates survives. Without it, `tutor` resolves to
+whatever is already on your PATH.
+
+This uses Tutor's **default project root**. If you already run Tutor locally and would rather this
+not touch it, export `TUTOR_ROOT` before `make setup` and keep it exported afterwards:
 
 ```bash
-tutor local do init --limit=nelc
+export TUTOR_ROOT="$PWD/tutor-root"
 ```
+
+The image build is unavoidable: installing a Django app into the LMS means the app has to be in
+the image. That is the production path, and the brief asked to be shown it rather than a shortcut.
+
+### Other commands
+
+| Command | What it does |
+| --- | --- |
+| `make checks` | The standalone checks in their own venv, no Docker needed |
+| `make help` | List every target |
+| `tutor local stop` | Stop the platform |
+| `tutor local dc down -v` | Stop it and drop the volumes |
+
+### The demo admin
+
+`tutor local launch` creates a superuser **`admin` / `admin`** through this plugin's init task, so
+you can sign in and click around without extra steps. That is a deliberately trivial credential on
+a throwaway instance, so it sits behind a config flag rather than being unconditional: this plugin
+should not quietly create a guessable superuser wherever it is installed.
+
+```bash
+tutor config save --set NELC_CREATE_DEMO_ADMIN=false
+```
+
+Worth knowing: `admin` lands on the certification dashboard too, because the redirect applies to
+every user, not just learners.
+
 
 ### What the seed creates
 

@@ -28,6 +28,46 @@ fix-lint: ## Fix lint errors automatically
 version: ## Print the current tutor-contrib-nelc version
 	@python -c 'import io, os; about = {}; exec(io.open(os.path.join("tutornelc", "__about__.py"), "rt", encoding="utf-8").read(), about); print(about["__version__"])'
 
+######## Demo instance
+
+VENV ?= .venv
+PYTHON ?= python3
+TUTOR_VERSION ?= 22.0.1
+TUTOR_MFE_VERSION ?= 22.0.0
+
+# Deliberately only two targets. Wrapping `tutor images build` or `tutor local
+# launch` in make would add a layer that hides which Tutor command is actually
+# running, which is the opposite of useful when you are reading a plugin to see
+# how it works. Everything below is real setup work; the Tutor commands you run
+# yourself.
+#
+# Note this uses Tutor's default project root. If you already run Tutor locally
+# and do not want this touching it, export TUTOR_ROOT before `make setup` and
+# keep it exported for the tutor commands afterwards.
+
+setup: ## Create the venv, install Tutor + tutor-mfe + this plugin, enable and configure
+	$(PYTHON) -m venv $(VENV)
+	$(VENV)/bin/pip install --upgrade --quiet pip
+	$(VENV)/bin/pip install --quiet "tutor==$(TUTOR_VERSION)" "tutor-mfe==$(TUTOR_MFE_VERSION)"
+	$(VENV)/bin/pip install --quiet -e .
+	$(VENV)/bin/tutor plugins enable nelc mfe
+	$(VENV)/bin/tutor config save
+	@echo
+	@echo "Done. A Makefile cannot activate a venv for your shell, so:"
+	@echo
+	@echo "    source $(VENV)/bin/activate"
+	@echo "    tutor images build openedx mfe    # 15-30 min"
+	@echo "    tutor local launch"
+	@echo
+	@echo "Then http://local.openedx.io and sign in as admin / admin"
+
+checks: ## Run the standalone checks in their own venv. No Docker needed
+	$(PYTHON) -m venv .venv-tests
+	.venv-tests/bin/pip install --quiet "django>=4.2" djangorestframework django-model-utils
+	.venv-tests/bin/python tests/run_checks.py
+
+.PHONY: setup checks
+
 ESCAPE = 
 help: ## Print this help
 	@grep -E '^([a-zA-Z_-]+:.*?## .*|######* .+)$$' Makefile \
