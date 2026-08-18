@@ -2,6 +2,11 @@
 .PHONY: docs
 SRC_DIRS = ./tutornelc
 
+# The vendored Django app under templates/ is excluded from these checks: it is
+# not part of the Tutor plugin's own Python package, it imports edx-platform
+# modules that are not installed here, and mypy --strict on it would only ever
+# report missing imports. tests/run_checks.py is what exercises that code.
+
 # Warning: These checks are not necessarily run on every PR.
 test: test-lint test-types test-format  # Run some static checks.
 
@@ -20,8 +25,75 @@ format: ## Format code
 fix-lint: ## Fix lint errors automatically
 	ruff check --fix ${SRC_DIRS}
 
-version: ## Print the current tutor-cairn version
+version: ## Print the current tutor-contrib-nelc version
 	@python -c 'import io, os; about = {}; exec(io.open(os.path.join("tutornelc", "__about__.py"), "rt", encoding="utf-8").read(), about); print(about["__version__"])'
+
+######## Demo instance
+
+PYTHON ?= python3
+
+# No version numbers live in this file, on purpose.
+#
+# Tutor's version range is declared once, in pyproject.toml, as this plugin's own
+# dependency. `pip install -e .` therefore installs a compatible Tutor, and a CI
+# script that runs the same command gets the same answer without duplicating a pin
+# that could drift.
+#
+# tutor-mfe is not pinned here either. `tutor plugins install mfe` reads the
+# release-specific plugin index, which for Verawood carries
+# `src: tutor-mfe>=22.0.0,<23.0.0`, so upstream decides what is compatible rather
+# than us guessing and going stale.
+#
+# The guards below exist because a Makefile cannot set your shell's environment:
+# every recipe line runs in its own subshell. Rather than create a venv you then
+# have to activate anyway, or default TUTOR_ROOT to something your later `tutor`
+# commands would disagree with, this uses exactly what you set.
+#
+# TUTOR_ROOT matters most when reviewing several submissions: give each its own
+# root or they share a config, a database and a set of Docker volumes.
+#
+# `tutor config save` runs first because the plugin index cache lives under
+# TUTOR_ROOT, so `tutor plugins update` needs the root to exist. It runs again at
+# the end to regenerate the environment with both plugins enabled.
+
+setup: ## Install Tutor, tutor-mfe and this plugin into the active venv, then enable and configure
+	@if [ -z "$$VIRTUAL_ENV" ]; then \
+		echo "No virtualenv is active. First:"; \
+		echo ""; \
+		echo "    $(PYTHON) -m venv .venv"; \
+		echo "    source .venv/bin/activate"; \
+		echo ""; \
+		exit 1; \
+	fi
+	@if [ -z "$$TUTOR_ROOT" ]; then \
+		echo "TUTOR_ROOT is not set. Give this submission its own root, so it cannot"; \
+		echo "share config, database or volumes with anything else you are running:"; \
+		echo ""; \
+		echo "    export TUTOR_ROOT=\"$$PWD/tutor-root\""; \
+		echo ""; \
+		exit 1; \
+	fi
+	pip install --upgrade --quiet pip
+	pip install --quiet -e .
+	tutor config save
+	tutor plugins update
+	tutor plugins install mfe
+	tutor plugins enable nelc mfe
+	tutor config save
+	@echo
+	@echo "Configured. TUTOR_ROOT=$$TUTOR_ROOT"
+	@echo
+	@echo "    tutor images build openedx mfe    # 15-30 min"
+	@echo "    tutor local launch"
+	@echo
+	@echo "Then http://local.openedx.io and sign in as admin / admin"
+
+checks: ## Run the standalone checks in their own venv. No Docker needed
+	$(PYTHON) -m venv .venv-tests
+	.venv-tests/bin/pip install --quiet "django>=4.2" djangorestframework django-model-utils
+	.venv-tests/bin/python tests/run_checks.py
+
+.PHONY: setup checks
 
 ESCAPE = 
 help: ## Print this help
