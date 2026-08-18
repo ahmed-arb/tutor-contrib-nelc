@@ -49,21 +49,32 @@ export TUTOR_ROOT="$PWD/tutor-root"
 
 # 1. Tutor v22 in its own virtualenv, so the plugin cannot collide with another install.
 python3 -m venv .venv
-./.venv/bin/pip install "tutor==22.0.1"
+source .venv/bin/activate
+pip install "tutor==22.0.1"
 
-# 2. Install this plugin and switch it on.
-./.venv/bin/pip install -e ./tutor-contrib-nelc
-./.venv/bin/tutor plugins enable nelc
-./.venv/bin/tutor config save
+# 2. Confirm you are driving the right Tutor at the right root before the slow step.
+which tutor              # should be the tutor inside .venv
+tutor --version          # should be 22.0.1
+tutor config printroot   # should be the TUTOR_ROOT you exported in step 0
 
-# 3. Build the image with the Django app baked in. This is the slow step.
-./.venv/bin/tutor images build openedx
+# 3. Install this plugin and switch it on.
+pip install -e ./tutor-contrib-nelc
+tutor plugins enable nelc
+tutor config save
 
-# 4. Start the platform. Because the app is in INSTALLED_APPS via the entry point,
+# 4. Build the image with the Django app baked in. This is the slow step.
+tutor images build openedx
+
+# 5. Start the platform. Because the app is in INSTALLED_APPS via the entry point,
 #    the platform's own migrate applies our migrations; the plugin's init task then
 #    seeds demo data.
-./.venv/bin/tutor local launch
+tutor local launch
 ```
+
+Step 2 is not ceremony. Both the activation and `TUTOR_ROOT` are shell state that dies with the
+terminal, and a `tutor` already on your PATH may be a different version pointed at a different
+root. Getting that wrong is quiet rather than loud: you would build one environment and launch
+another. **In any new terminal, re-run the `export` and `source` lines before anything else.**
 
 `tutor local launch` is interactive on first run and will ask for hostnames; the defaults
 (`local.openedx.io`, `studio.local.openedx.io`) are fine and are what the commands below
@@ -72,7 +83,7 @@ assume.
 If you ever need to re-run just this plugin's migrations and seed without a full launch:
 
 ```bash
-./.venv/bin/tutor local do init --limit=nelc
+tutor local do init --limit=nelc
 ```
 
 ### What the seed creates
@@ -95,7 +106,7 @@ the least fiddly to drive from a terminal.
 
 ```bash
 # 1. One-off: create an OAuth application that can issue tokens for a user.
-./.venv/bin/tutor local run lms ./manage.py lms create_dot_application \
+tutor local run lms ./manage.py lms create_dot_application \
   --grant-type password --public --skip-authorization \
   --client-id nelc-demo-client \
   nelc-demo coach_north
@@ -147,14 +158,14 @@ than a permission check that could be skipped. A coach who coaches nobody gets
 You need a course to enroll into. A fresh instance has none, so import the demo course first:
 
 ```bash
-./.venv/bin/tutor local do importdemocourse
+tutor local do importdemocourse
 ```
 
 Then enroll a seeded learner through the platform's own enrollment path and confirm a
 `LearnerActivity` row appears:
 
 ```bash
-./.venv/bin/tutor local exec -T lms ./manage.py lms shell <<'EOF'
+tutor local exec -T lms ./manage.py lms shell <<'EOF'
 from django.contrib.auth import get_user_model
 from opaque_keys.edx.keys import CourseKey
 from common.djangoapps.student.models import CourseEnrollment
@@ -185,9 +196,13 @@ standalone harness that runs the real models, views, serializers, `apps.py` and 
 only the platform-side imports stubbed. It needs no Docker and no `edx-platform`:
 
 ```bash
+# A second venv on purpose: these deps are not in the Tutor one, and the harness
+# should not be able to accidentally import anything Tutor pulled in.
+deactivate 2>/dev/null || true
 python3 -m venv .venv-tests
-./.venv-tests/bin/pip install "django>=4.2" djangorestframework django-model-utils
-./.venv-tests/bin/python tests/run_checks.py
+source .venv-tests/bin/activate
+pip install "django>=4.2" djangorestframework django-model-utils
+python tests/run_checks.py
 ```
 
 19 checks covering coach scoping, cross-partner contamination, the tier gate and the receiver's
@@ -236,8 +251,8 @@ this slice does not build. The performance argument in the note is reasoning, no
 ## Tearing it down
 
 ```bash
-./.venv/bin/tutor local stop
-./.venv/bin/tutor local dc down -v   # also drops the volumes
+tutor local stop
+tutor local dc down -v   # also drops the volumes
 ```
 
 ## Repository layout
