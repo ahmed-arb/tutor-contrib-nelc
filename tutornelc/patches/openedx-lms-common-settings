@@ -1,0 +1,13 @@
+# Stakeholder request 1: the learner's landing page is the certification dashboard.
+#
+# student_dashboard() in common/djangoapps/student/views/dashboard.py does
+# `if learner_home_mfe_enabled(): return redirect(settings.LEARNER_HOME_MICROFRONTEND_URL)`,
+# so pointing that setting at our page and turning the flag on is the whole change.
+# The flag is enabled by this plugin's init task. No fork and no core patch.
+#
+# Captured first so the page can still link to a real learner dashboard if one was
+# configured; linking to /dashboard would otherwise bounce straight back here.
+NELC_ORIGINAL_LEARNER_HOME_URL = LEARNER_HOME_MICROFRONTEND_URL
+# LMS_ROOT_URL is a Django setting, not a Tutor config key, so this is plain Python
+# evaluated at settings load rather than a Jinja substitution.
+LEARNER_HOME_MICROFRONTEND_URL = LMS_ROOT_URL + "/nelc/dashboard/"

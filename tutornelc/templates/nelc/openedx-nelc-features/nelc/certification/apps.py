@@ -24,8 +24,11 @@ class CertificationConfig(AppConfig):
             ProjectType.LMS: {
                 PluginURLs.NAMESPACE: "nelc_certification",
                 PluginURLs.APP_NAME: "nelc_certification",
-                PluginURLs.REGEX: r"^api/nelc/v1/",
-                PluginURLs.RELATIVE_PATH: "api.urls",
+                # Mounted at the site root: urls.py writes each path in full so the
+                # coach API keeps a versioned /api/nelc/v1/ prefix while the learner's
+                # landing page gets a clean /nelc/dashboard/ one.
+                PluginURLs.REGEX: r"",
+                PluginURLs.RELATIVE_PATH: "urls",
             },
         },
         PluginSettings.CONFIG: {

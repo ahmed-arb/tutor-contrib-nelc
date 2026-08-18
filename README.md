@@ -11,6 +11,9 @@ Read the note first if you want to know why the slice stops where it does.
 - **Five models**: `PartnerCompany`, `Tier`, `CoachGroup`, `LearnerRecord`, `LearnerActivity`.
 - **One authenticated endpoint**: `GET /api/nelc/v1/coach/me/group/`, which returns the
   requesting coach's own group and refuses to expose anyone else's.
+- **The learner's landing page**: `GET /nelc/dashboard/`, a placeholder certification dashboard
+  with a Certification tab ahead of the platform's Courses and Discover. `/dashboard` redirects
+  here, via a settings patch plus a waffle flag this plugin sets. No fork and no core change.
 - **One enrollment-reactive receiver**: on [openedx-events](https://github.com/openedx/openedx-events) `COURSE_ENROLLMENT_CREATED`,
   writes a `LearnerActivity` row for the enrolling learner.
 
@@ -249,8 +252,15 @@ container.
 | Coaches cannot see each other's learners | No overlap between the two responses |
 | A learner with no tier serialises cleanly | `learner_north_3` returns `tier: null`, `tier_rank: null` |
 | Unauthenticated access is refused | `HTTP 401` |
+| `/dashboard` lands the learner on the certification dashboard | `302` to `/nelc/dashboard/`, which returns `200` |
+| The landing page requires login | anonymous gets `302` to `/login?next=/nelc/dashboard/` |
+| The landing page's own tabs are in the requested order | Certification (current), Courses, Discover new |
 
-Not verified, and I would rather say so than imply otherwise: Kubernetes deployment, anything
+Not verified, and I would rather say so than imply otherwise: **the header tab injected into the
+MFE via `PLUGIN_SLOTS`**, which needs the `mfe` plugin enabled and its image built, so I have
+confirmed the slot id against the `@edx/frontend-component-header` 8.2.x that Verawood pins but
+have not seen the tab render. The three tabs in the verification table are the placeholder page's
+own nav, which is a different thing. Also not verified: Kubernetes deployment, anything
 under load, and the two-second coach view, which is a claim about a `LearnerTrackSummary` table
 this slice does not build. The performance argument in the note is reasoning, not a measurement.
 

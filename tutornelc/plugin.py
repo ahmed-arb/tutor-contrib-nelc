@@ -104,9 +104,63 @@ echo "NELC: applying partner certification migrations..."
 
 echo "NELC: seeding demo partner, tiers, coach group and learners..."
 ./manage.py lms seed_nelc_demo
+
+# Makes the certification dashboard the learner's landing page. student_dashboard()
+# only honours LEARNER_HOME_MICROFRONTEND_URL when this flag is on. Idempotent.
+echo "NELC: enabling learner_home_mfe.enabled so /dashboard redirects to us..."
+./manage.py lms waffle_flag --create --everyone learner_home_mfe.enabled
 """,
     )
 )
+
+
+########################################
+# HEADER TAB
+########################################
+
+# Adds a Certification tab to the learner-facing header, ahead of the platform's
+# own Courses and Discover links, which stay where they are.
+#
+# The widget is written inline here rather than shipped as an npm package. That is
+# possible because a nav tab is just an anchor; frontend-plugin-framework evaluates
+# this string inside env.config.jsx, so a plain arrow component needs no build of
+# our own. Pattern taken from tutor-indigo-wikilearn.
+#
+# tutor-mfe is an optional dependency: without it there are no MFEs to inject into,
+# and the backend slice still works, so the import is guarded rather than required.
+try:
+    from tutormfe.hooks import PLUGIN_SLOTS
+
+    CERTIFICATION_TAB = """
+            {
+              op: PLUGIN_OPERATIONS.Insert,
+              widget: {
+                id: 'nelc_certification_tab',
+                type: DIRECT_PLUGIN,
+                priority: 1,
+                RenderWidget: () => (
+                  <a className="nav-link" href={`${getConfig().LMS_BASE_URL}/nelc/dashboard/`}>
+                    Certification
+                  </a>
+                ),
+              },
+            }
+    """
+
+    for _mfe in ("learner-dashboard", "profile", "account"):
+        PLUGIN_SLOTS.add_item(
+            (
+                _mfe,
+                # Slot id as published by @edx/frontend-component-header 8.2.x, which is
+                # what the Verawood MFEs pin. Older releases used the short name
+                # "desktop_main_menu_slot".
+                "org.openedx.frontend.layout.header_desktop_main_menu.v1",
+                CERTIFICATION_TAB,
+            )
+        )
+except ImportError:  # pragma: no cover
+    # tutor-mfe not installed. Nothing to inject into.
+    pass
 
 
 ########################################

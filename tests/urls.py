@@ -8,5 +8,5 @@ so the paths under test match the paths in production.
 from django.urls import include, path
 
 urlpatterns = [
-    path("api/nelc/v1/", include("nelc.certification.api.urls")),
+    path("", include("nelc.certification.urls")),
 ]

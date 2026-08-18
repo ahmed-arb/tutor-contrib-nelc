@@ -54,10 +54,13 @@ Live aggregation cannot reach two seconds on a phone; the price is seconds of st
 **In-course:** a [`frontend-app-learning`](https://github.com/openedx/frontend-app-learning) plugin slot showing tier, distance to the standard and a
 contact-coach action, so no course content changes.
 
-**Landing page:** a [frontend-base](https://github.com/openedx/frontend-base) app declaring the `org.openedx.frontend.role.home` role, its tab
-appended to the header's `desktopPrimaryLinks` slot ahead of Courses and Discover. The shell
-resolves `/` from whichever app holds that role, so no core change and no redirect override.
-Outside the slice because tab and role ship as an npm package installed via `FRONTEND_APPS`.
+**Landing page:** `student_dashboard()` redirects `/dashboard` to
+`settings.LEARNER_HOME_MICROFRONTEND_URL` whenever the `learner_home_mfe.enabled` waffle flag is
+on, so pointing that setting at our page and turning the flag on is the whole change. Both are
+this plugin's: a settings patch and an init task. The header tab is inline JSX injected through
+`PLUGIN_SLOTS` into `org.openedx.frontend.layout.header_desktop_main_menu.v1`, ahead of Courses
+and Discover, which stay. No fork, no core change and no npm package, since a tab is just an
+anchor. Built and verified; the page itself is a placeholder.
 
 **Catalogue:** extend [`frontend-app-catalog`](https://github.com/openedx/frontend-app-catalog),
 the [Course About, Index and Course Catalog MFE conversion](https://openedx.atlassian.net/wiki/spaces/OEPM/pages/5010718766/Proposal+Course+About+page+Index+Page+and+Course+Catalog+MFE+conversion)
