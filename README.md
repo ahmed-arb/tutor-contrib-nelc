@@ -323,6 +323,7 @@ tutor-contrib-nelc/
 ├── ARCHITECTURE.md              the two-page note
 ├── docs/erd.md                  data model, ours and the platform's
 ├── docs/implementation-plan.md  what is not built, in the order I would build it
+├── llms.txt                     map of the repo for LLMs, per llmstxt.org
 ├── docs/diagrams.md             context and coach-view request path
 ├── tests/run_checks.py          standalone checks, no Docker needed
 ├── pyproject.toml               tutor.plugin.v1 entry point

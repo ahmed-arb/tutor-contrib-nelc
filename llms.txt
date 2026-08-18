@@ -1,0 +1,39 @@
+# tutor-contrib-nelc
+
+> A Tutor plugin that installs a partner certification Django app into the Open edX LMS
+> (Verawood, Tutor v22). It is the working slice for an architecture challenge: a software company
+> certifying the staff of its implementation partners. The reasoning matters more than the code
+> here, so read the architecture note first.
+
+The central decision: do not extend course-discovery, and do not wait for native stackable
+pathways. Build one Tutor plugin installing one LMS Django app through the `lms.djangoapp` entry
+point, which owns tracks, tiers, partner companies, coach groups and the certification standard,
+reads LMS enrollment and grades, and forks nothing.
+
+## Read these first
+
+- [ARCHITECTURE.md](https://github.com/ahmed-arb/tutor-contrib-nelc/blob/main/ARCHITECTURE.md): the two-page note, five headings. What was decided and why, what is extended vs built alongside, where the data lives, what is deferred or declined, and where AI was used.
+- [README.md](https://github.com/ahmed-arb/tutor-contrib-nelc/blob/main/README.md): what the slice contains, exact bring-up commands, and a table of every claim that was verified on a clean instance plus what was not.
+- [docs/erd.md](https://github.com/ahmed-arb/tutor-contrib-nelc/blob/main/docs/erd.md): two ERDs, one for the five tables the slice migrates and one for the full design, so unbuilt tables are visibly unbuilt.
+- [docs/implementation-plan.md](https://github.com/ahmed-arb/tutor-contrib-nelc/blob/main/docs/implementation-plan.md): the five phases for everything not built, ordered by dependency and risk, with exit criteria.
+- [docs/diagrams.md](https://github.com/ahmed-arb/tutor-contrib-nelc/blob/main/docs/diagrams.md): service context, how the plugin installs, and the coach-view request path.
+
+## What the slice actually builds
+
+- Five models in [models.py](https://github.com/ahmed-arb/tutor-contrib-nelc/blob/main/tutornelc/templates/nelc/openedx-nelc-features/nelc/certification/models.py): `PartnerCompany`, `Tier` (ranked, so tier gating is a comparison), `CoachGroup`, `LearnerRecord` (one-to-one to `auth_user`, no PII of its own), `LearnerActivity` (append-only).
+- One authenticated endpoint in [api/views.py](https://github.com/ahmed-arb/tutor-contrib-nelc/blob/main/tutornelc/templates/nelc/openedx-nelc-features/nelc/certification/api/views.py): `GET /api/nelc/v1/coach/me/group/`. It takes no group id, so there is no reference to tamper with, and it re-checks each member's partner against its group.
+- One enrollment receiver in [receivers.py](https://github.com/ahmed-arb/tutor-contrib-nelc/blob/main/tutornelc/templates/nelc/openedx-nelc-features/nelc/certification/receivers.py): on openedx-events `COURSE_ENROLLMENT_CREATED`, writes a `LearnerActivity` row.
+- The learner's landing page at `/nelc/dashboard/`, made the default by pointing `LEARNER_HOME_MICROFRONTEND_URL` at it and enabling the `learner_home_mfe.enabled` waffle flag. No fork, no core change.
+- [tests/run_checks.py](https://github.com/ahmed-arb/tutor-contrib-nelc/blob/main/tests/run_checks.py): 19 checks covering coach scoping, cross-partner contamination, the tier gate and the receiver, runnable in seconds without Docker.
+
+## Facts that are easy to get wrong
+
+- **Stackable pathways are a Willow (December 2026) feature, not Verawood.** Vendor blogs and search summaries say otherwise; the Verawood release notes put that line under "Upcoming in Willow".
+- **Verawood does ship `staff-graded-xblock`**, pinned at 4.0.0 in `requirements/edx/base.txt`, so the offline-grading recommendation needs nothing installed.
+- **The header tab is a proof of concept, not the design.** It must be injected per MFE and only reaches MFEs rendering the header layout slots; `frontend-app-catalog` renders none, so "Discover new" cannot show it. The real version is a frontend app registered via `MFE_APPS.add()`.
+- The two-second coach view is a claim about a `LearnerTrackSummary` rollup this slice does not build. The argument in the note is reasoning about index cardinality, not a measurement.
+
+## Optional
+
+- [docs/implementation-plan.md#not-planned](https://github.com/ahmed-arb/tutor-contrib-nelc/blob/main/docs/implementation-plan.md): what is declined rather than deferred, namely coaches editing progress directly and storing partner employee IDs.
+- [tutornelc/plugin.py](https://github.com/ahmed-arb/tutor-contrib-nelc/blob/main/tutornelc/plugin.py): the Tutor plugin itself: config, vendored app sync, patches, init tasks and the header tab injection.
