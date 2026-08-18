@@ -56,10 +56,27 @@ this document claimed the tab and the redirect both needed a package outside the
 wrong, and it is recorded here because it changed the shape of the answer: this is configuration,
 not a fork.
 
-Two honest limits. The page behind the route is a placeholder, and because it is a Django page it
-does not render inside the MFE shell, so a real implementation would be a route in the learner
-dashboard MFE. And [frontend-base](https://github.com/openedx/frontend-base) will make this
-cleaner still: an app declares the `org.openedx.frontend.role.home` role and the shell resolves `/`
+### Why the tab is a proof of concept
+
+Injecting a widget into another app's header slot proves the plumbing but does not scale, and
+testing it in a browser showed exactly where it stops:
+
+- It has to be injected per MFE. This plugin lists `learner-dashboard`, `profile` and `account`.
+- It only reaches MFEs that render the header's layout slots.
+  [`frontend-app-catalog`](https://github.com/openedx/frontend-app-catalog) does not: its bundle
+  exposes `org.openedx.frontend.catalog.*` content slots and no `layout.header_*` slot at all. Since
+  "Discover new" resolves to the catalog MFE, **it cannot show the tab however it is configured**.
+- The page behind the tab is a plain Django view, so it carries no platform header, branding, user
+  menu or footer.
+
+The real implementation is our own frontend app registered through `tutormfe.hooks.MFE_APPS.add()`,
+the same mechanism tutor-mfe uses for the core apps. That gives us our own routes, the shell chrome
+for free, and one place to own the dashboard rather than a tab borrowed into three headers plus a
+Django page pretending to be a fourth. What is here proves the routing and the settings path; it is
+not the design.
+
+Looking further out, [frontend-base](https://github.com/openedx/frontend-base) makes even the
+redirect unnecessary: an app declares the `org.openedx.frontend.role.home` role and the shell resolves `/`
 to it with no redirect involved. [Verawood](https://docs.openedx.org/en/latest/community/release_notes/verawood.html)
 ships the frontend-base `learner-dashboard` as `enabled: False`, and full conversion is not
 expected until Xylon in June 2027 (see the [release schedule](https://openedx.atlassian.net/wiki/spaces/COMM/pages/3613392957/Open+edX+release+schedule)),
