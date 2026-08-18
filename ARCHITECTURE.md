@@ -9,7 +9,7 @@ Open edX [Verawood](https://docs.openedx.org/en/latest/community/release_notes/v
 "courses taken in order" with "granted on passing a standard, not on finishing every course".
 One model: ordered steps, each required or optional, plus a rule for passing. I assumed the
 rule is a weighted grade threshold across required steps plus a minimum count from optional
-groups, which is the shape the [Proposed Catalog Plugin](https://openedx.atlassian.net/wiki/spaces/OEPM/pages/5026938891/Proposed+Catalog+Plugin) already argues for: "Complete all 2
+groups, which is the shape my [Proposed Catalog Plugin](https://openedx.atlassian.net/wiki/spaces/OEPM/pages/5026938891/Proposed+Catalog+Plugin) already argues for: "Complete all 2
 courses in Core Courses AND Complete at least 1 of 2 courses in Specialization Courses."
 
 **Tiers are ranked, so the gate is a comparison**, not a lookup table:
@@ -35,7 +35,7 @@ The call that could most reasonably have gone the other way is not building on
 its own database, while every query here joins to LMS enrollment, grades and completion. That
 boundary is what puts the two-second coach view out of reach. It is also the deprecated direction:
 the Proposed Catalog Plugin exists to replace discovery with an in-LMS Django plugin, and this is
-that pattern applied to one client.
+that pattern applied to a single client.
 
 **Native stackable pathways are not in Verawood; they are announced for [Willow](https://docs.openedx.org/en/latest/community/release_notes/willow.html), December 2026.**
 [`open-craft/learning-paths-plugin`](https://github.com/open-craft/learning-paths-plugin) exists today, but its step is a `CourseKeyField` (no vendor or
@@ -77,21 +77,30 @@ its grade, never the content.
 template through the endpoints `CatalogDataSynchronizer` expects. Notifications ride the platform's
 notifications app; the program team reads the activity table as a partner-scoped feed.
 
+**How the rest gets built.** Five phases, ordered by what unblocks what and by where the risk sits,
+not by what demos well. **1)** The track spine and the tier gate, since nothing else can start
+without a track. **2)** Progress: the rollup receivers, then the coach view. This phase holds the
+one claim I cannot yet defend with a measurement, so it gets a synthetic 200 by 6 dataset and a load
+test before any UI. **3)** Certification: evaluate, grant, issue, notify. **4)** The public
+catalogue. **5)** The vendor adapter, last because it is contract-shaped and blocked on a real
+vendor. The activity feed rides along from phase 1. Dependencies and exit criteria per phase:
+[docs/implementation-plan.md](docs/implementation-plan.md).
+
 ## 3. Where the data lives
 
-Ours, in the LMS database, with no foreign keys into platform tables. `PartnerCompany` is the
-scoping root; `Tier` carries `code` and `rank`; `CoachGroup` holds coach, partner and name.
-`LearnerRecord` is one row per learner: `user` one-to-one to `auth_user` plus partner, tier and
-coach group, and no name, email or employee ID. `Track`, `TrackStep`, `TrackStepGroup`,
-`Vendor` and `CertificationStandard` are the track spine. `TrackEnrollment` plus audit rows are
-soft-deleted; `LearnerTrackSummary` is the rollup the coach view reads; `LearnerActivity` is
-append-only and is both the feed and the rollup's source; `Certification` records grants.
+All ours, in the LMS database, with no foreign keys into platform tables. `PartnerCompany` is the
+scoping root. `Tier` carries a `rank`. `CoachGroup` holds coach and partner. `LearnerRecord` is one
+row per learner, one-to-one to `auth_user`, with no name, email or employee ID of its own. `Track`,
+`TrackStep`, `TrackStepGroup`, `Vendor` and `CertificationStandard` are the track spine;
+`TrackEnrollment` and its audit rows are soft-deleted; `LearnerTrackSummary` is the rollup the coach
+view reads; `LearnerActivity` is append-only and feeds both the programme team and the rollup;
+`Certification` records grants. Columns and cardinalities: [docs/erd.md](docs/erd.md).
 
 Steps reference courses by key string, per the [Catalog Plugin](https://openedx.atlassian.net/wiki/spaces/OEPM/pages/5026938891/Proposed+Catalog+Plugin)'s rule that a catalogue holds
-"references to courses, but will not store them directly to ensure data integrity and never be
-out of date, like discovery". Every join to the platform is on `user_id` or a course key,
-read-only: `auth_user`, `student_courseenrollment`, `grades_persistentcoursegrade`, completion
-aggregator, `course_overviews`.
+"references to courses, but will not store them directly to ensure data integrity and never be out
+of date, like discovery". Every join to the platform is read-only and on `user_id` or a course key:
+`auth_user`, `student_courseenrollment`, `grades_persistentcoursegrade`, the completion aggregator,
+`course_overviews`.
 
 ## 4. What I would defer or decline
 
