@@ -77,14 +77,9 @@ its grade, never the content.
 template through the endpoints `CatalogDataSynchronizer` expects. Notifications ride the platform's
 notifications app; the program team reads the activity table as a partner-scoped feed.
 
-**How the rest gets built.** Five phases, ordered by what unblocks what and by where the risk sits,
-not by what demos well. **1)** The track spine and the tier gate, since nothing else can start
-without a track. **2)** Progress: the rollup receivers, then the coach view. This phase holds the
-one claim I cannot yet defend with a measurement, so it gets a synthetic 200 by 6 dataset and a load
-test before any UI. **3)** Certification: evaluate, grant, issue, notify. **4)** The public
-catalogue. **5)** The vendor adapter, last because it is contract-shaped and blocked on a real
-vendor. The activity feed rides along from phase 1. Dependencies and exit criteria per phase:
-[docs/implementation-plan.md](docs/implementation-plan.md).
+**How the rest gets built.** Five phases ordered by dependency and by where the risk sits, with the
+coach view early because its two-second claim is the one thing here I cannot yet back with a
+measurement: [docs/implementation-plan.md](docs/implementation-plan.md).
 
 ## 3. Where the data lives
 
@@ -110,10 +105,8 @@ a [`StaffGradedXBlock`](https://github.com/openedx/staff-graded-xblock) step, st
 import, whose `weight` caps how far it can move the standard. The coach scores that one block and
 cannot touch other steps, completion or the tier. Scores land in `grades_persistentcoursegrade`
 like any other, so the rollup recomputes with no special case and
-`PERSISTENT_GRADE_SUMMARY_CHANGED` feeds the activity table. Residual risk worth naming: grading
-needs a course staff role, which is broader than one block, so offline-graded steps belong in
-their own course to keep that grant narrow. Costs nothing to adopt: the block is already pinned in
-Verawood's base requirements.
+`PERSISTENT_GRADE_SUMMARY_CHANGED` feeds the activity table. Costs nothing to adopt: the block is
+already pinned in Verawood's base requirements.
 
 **Decline: employee IDs on the learner record.** Partner-controlled identifiers for people who
 are not our users, with no retention agreement, which would subject our table to each partner's
@@ -135,14 +128,17 @@ the event bus; I would start synchronous and move it the first time enrollment l
 complained about. And whether one coach per learner survives a real partner org chart, which the
 first handover request settles.
 
-**Where I used AI.** Claude Code, for the reference sweep across the Verawood notes,
-`learning-paths-plugin`, `frontend-app-catalog` and `tutor-mfe`, and to draft the plugin
-scaffolding against the WikiLearn and prior-client patterns.
+**Where I used AI, and where I did not.** Claude Code did the reference sweep, the scaffolding and
+most of the prose. The direction was mine, and three interventions changed substance rather than
+wording. The thesis, a dedicated in-LMS plugin over extending course-discovery, came from my own
+[Proposed Catalog Plugin](https://openedx.atlassian.net/wiki/spaces/OEPM/pages/5026938891/Proposed+Catalog+Plugin)
+proposal. On offline grading it wanted to invent an attestation trail; I redirected it to a
+staff-graded XBlock, reusing the platform's grading pipeline instead of a parallel one. On the
+landing page it twice concluded a package outside this plugin was needed; I pointed it at how we did
+header tabs at WikiLearn, and it turned out to be inline JSX plus one Django setting.
 
-**What it got wrong that I caught.** It reported stackable pathways as a Verawood feature,
-echoing a vendor blog and search summaries; the release notes put that line under "Upcoming in
-Willow (December 2026)". That would have inverted this note's central decision, so it is the
-claim I checked against primary sources. Its first coach endpoint also scoped members by the set
-of partners the coach works with rather than per group, which leaks across partners for any
-coach with groups at two companies; I rewrote it as two queries with an explicit per-group
-check.
+**What it got wrong that we caught.** It reported stackable pathways as a Verawood feature, echoing
+a vendor blog; the release notes put that under "Upcoming in Willow", which would have inverted the
+central decision here. It claimed Verawood does not ship `staff-graded-xblock` on the strength of a
+command that had silently failed. And its first coach endpoint scoped members by the coach's
+partners rather than per group, leaking across partners for a coach working with two companies.

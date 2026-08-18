@@ -1,0 +1,8 @@
+// getConfig is not in scope in env.config.jsx: the file imports nothing at the
+// top, so a widget calling it throws a ReferenceError, the header's error
+// boundary catches it, and you get "An unexpected error occurred" with no tab.
+//
+// Imported dynamically inside the try block, the same way the template imports
+// frontend-plugin-framework, because not every MFE declares the dependency and a
+// static import would break the ones that do not.
+const { getConfig } = await import('@edx/frontend-platform');

@@ -280,13 +280,29 @@ container.
 | The landing page requires login | anonymous gets `302` to `/login?next=/nelc/dashboard/` |
 | The landing page's own tabs are in the requested order | Certification (current), Courses, Discover new |
 
-Not verified, and I would rather say so than imply otherwise: **the header tab injected into the
-MFE via `PLUGIN_SLOTS`**, which needs the `mfe` plugin enabled and its image built, so I have
-confirmed the slot id against the `@edx/frontend-component-header` 8.2.x that Verawood pins but
-have not seen the tab render. The three tabs in the verification table are the placeholder page's
-own nav, which is a different thing. Also not verified: Kubernetes deployment, anything
-under load, and the two-second coach view, which is a claim about a `LearnerTrackSummary` table
-this slice does not build. The performance argument in the note is reasoning, not a measurement.
+**Not yet verified: the header tab in the MFE.** Confirmed so far: the slot config generates into
+`env.config.jsx`, the widget compiles into the served learner-dashboard bundle, and the slot id
+matches the `@edx/frontend-component-header` 8.2.1 that Verawood pins. Not confirmed: that it
+mounts and appears in the header. Two bugs were found by looking at it in a browser, which is why
+this row is honest rather than green:
+
+- `getConfig` is not in scope in `env.config.jsx`, so the widget threw a `ReferenceError` and the
+  header's error boundary showed "An unexpected error occurred" with no tab. Fixed by importing it
+  at the `mfe-env-config-runtime-definitions` hook, which needs `tutor images build mfe` again
+  because that file is compiled in by webpack.
+- Caddy serves an empty `200` for `apps.local.openedx.io` until it is restarted after `mfe` is
+  enabled, because the host block is new to its config. **If MFEs come up blank, run
+  `tutor local restart caddy`.** This is the likeliest thing to trip you up on a first run.
+
+To check the tab: sign in at http://local.openedx.io as `admin` / `admin`, then open
+http://apps.local.openedx.io/learner-dashboard/ directly. `/dashboard` will not get you there,
+since this plugin redirects it. The main menu should read Certification, then Courses and Discover.
+If Certification is missing, suspect the slot id first: older releases used the short name
+`desktop_main_menu_slot`, and it is a one-line change in `tutornelc/plugin.py`.
+
+Also not verified: Kubernetes, anything under load, and the two-second coach view, which is a claim
+about a `LearnerTrackSummary` table this slice does not build. The performance argument in the note
+is reasoning, not a measurement.
 
 ## Tearing it down
 
