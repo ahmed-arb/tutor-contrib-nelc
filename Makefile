@@ -30,32 +30,45 @@ version: ## Print the current tutor-contrib-nelc version
 
 ######## Demo instance
 
-VENV ?= .venv
 PYTHON ?= python3
 TUTOR_VERSION ?= 22.0.1
 TUTOR_MFE_VERSION ?= 22.0.0
 
-# Deliberately only two targets. Wrapping `tutor images build` or `tutor local
-# launch` in make would add a layer that hides which Tutor command is actually
-# running, which is the opposite of useful when you are reading a plugin to see
-# how it works. Everything below is real setup work; the Tutor commands you run
-# yourself.
+# This target installs into whatever virtualenv is active and configures whatever
+# TUTOR_ROOT is exported, and refuses to run if either is missing. Both are your
+# shell's state, which a Makefile cannot set: every recipe line runs in its own
+# subshell. Rather than create a venv you then have to activate anyway, or default
+# TUTOR_ROOT to something your later `tutor` commands would not agree with, it
+# asks you to set both first and then uses exactly what you set.
 #
-# Note this uses Tutor's default project root. If you already run Tutor locally
-# and do not want this touching it, export TUTOR_ROOT before `make setup` and
-# keep it exported for the tutor commands afterwards.
+# TUTOR_ROOT matters most if you are reviewing several submissions: give each one
+# its own root or they share a config, a database and a set of Docker volumes.
 
-setup: ## Create the venv, install Tutor + tutor-mfe + this plugin, enable and configure
-	$(PYTHON) -m venv $(VENV)
-	$(VENV)/bin/pip install --upgrade --quiet pip
-	$(VENV)/bin/pip install --quiet "tutor==$(TUTOR_VERSION)" "tutor-mfe==$(TUTOR_MFE_VERSION)"
-	$(VENV)/bin/pip install --quiet -e .
-	$(VENV)/bin/tutor plugins enable nelc mfe
-	$(VENV)/bin/tutor config save
+setup: ## Install Tutor, tutor-mfe and this plugin into the active venv, then enable and configure
+	@if [ -z "$$VIRTUAL_ENV" ]; then \
+		echo "No virtualenv is active. First:"; \
+		echo ""; \
+		echo "    $(PYTHON) -m venv .venv"; \
+		echo "    source .venv/bin/activate"; \
+		echo ""; \
+		exit 1; \
+	fi
+	@if [ -z "$$TUTOR_ROOT" ]; then \
+		echo "TUTOR_ROOT is not set. Give this submission its own root, so it cannot"; \
+		echo "share config, database or volumes with anything else you are running:"; \
+		echo ""; \
+		echo "    export TUTOR_ROOT=\"$$PWD/tutor-root\""; \
+		echo ""; \
+		exit 1; \
+	fi
+	pip install --upgrade --quiet pip
+	pip install --quiet "tutor==$(TUTOR_VERSION)" "tutor-mfe==$(TUTOR_MFE_VERSION)"
+	pip install --quiet -e .
+	tutor plugins enable nelc mfe
+	tutor config save
 	@echo
-	@echo "Done. A Makefile cannot activate a venv for your shell, so:"
+	@echo "Configured. TUTOR_ROOT=$$TUTOR_ROOT"
 	@echo
-	@echo "    source $(VENV)/bin/activate"
 	@echo "    tutor images build openedx mfe    # 15-30 min"
 	@echo "    tutor local launch"
 	@echo

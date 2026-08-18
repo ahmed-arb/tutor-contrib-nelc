@@ -53,29 +53,29 @@ of that.
 git clone https://github.com/ahmed-arb/tutor-contrib-nelc.git
 cd tutor-contrib-nelc
 
-make setup                          # venv, Tutor v22, tutor-mfe, this plugin, enabled and configured
+python3 -m venv .venv
 source .venv/bin/activate
+export TUTOR_ROOT="$PWD/tutor-root"
+
+make setup                          # Tutor v22, tutor-mfe, this plugin, enabled and configured
 tutor images build openedx mfe      # 15 to 30 minutes, and unavoidable
 tutor local launch
 ```
 
 Then open **http://local.openedx.io** and sign in as **`admin` / `admin`**.
 
-`make setup` is the only wrapper, because it is the only part that is fiddly: a virtualenv, Tutor
-and tutor-mfe pinned to versions that match, this plugin installed editable, both plugins enabled,
-and a config saved. The build and launch are plain Tutor commands, deliberately not wrapped, so
-you can see exactly what is running.
+### Why those three lines are yours and not the Makefile's
 
-The `source` line is not optional and cannot be folded into `make setup`: every make recipe line
-runs in its own subshell, so nothing it activates survives. Without it, `tutor` resolves to
-whatever is already on your PATH.
+A Makefile cannot set your shell's environment: every recipe line runs in its own subshell, so a
+venv it creates and activates is gone by the time you type the next command. Rather than half-do
+it, `make setup` installs into whatever venv is active and configures whatever `TUTOR_ROOT` is
+exported, and **refuses to run if either is missing**, printing the line you need. That way your
+shell and the Makefile cannot disagree about which Python or which instance they mean.
 
-This uses Tutor's **default project root**. If you already run Tutor locally and would rather this
-not touch it, export `TUTOR_ROOT` before `make setup` and keep it exported afterwards:
-
-```bash
-export TUTOR_ROOT="$PWD/tutor-root"
-```
+`TUTOR_ROOT` is worth setting deliberately. If you are reviewing several submissions, each needs
+its own root, or they share a config file, a MySQL database and a set of Docker volumes. One note
+though: separate roots do not give separate ports. Every Tutor instance wants `local.openedx.io`
+on port 80, so run one at a time and `tutor local stop` before switching.
 
 The image build is unavoidable: installing a Django app into the LMS means the app has to be in
 the image. That is the production path, and the brief asked to be shown it rather than a shortcut.
@@ -86,7 +86,7 @@ the image. That is the production path, and the brief asked to be shown it rathe
 | --- | --- |
 | `make checks` | The standalone checks in their own venv, no Docker needed |
 | `make help` | List every target |
-| `tutor local stop` | Stop the platform |
+| `tutor local stop` | Stop the platform, needed before starting another submission |
 | `tutor local dc down -v` | Stop it and drop the volumes |
 
 ### The demo admin
