@@ -44,8 +44,8 @@ unbuilt steps), its `level` is unenforced (no tier gate), and its visibility is 
 migration, not a redesign.
 
 **One Tutor plugin, one LMS Django app** via the `lms.djangoapp` entry point, no fork. To change
-platform behaviour: filter, then our own method called from core, then monkey-patch, then
-subclass, the ladder WikiLearn used to retire four forks.
+platform behaviour: filter, then our own method called from core, then monkey-patch, then subclass,
+the ladder WikiLearn used to retire four forks.
 
 **Coach view:** a denormalised rollup, one row per learner per track, written by receivers, so
 1200 rows come off one index on `(coach_group, track)` instead of being aggregated per request.
@@ -53,6 +53,11 @@ Live aggregation cannot reach two seconds on a phone; the price is seconds of st
 
 **In-course:** a `frontend-app-learning` plugin slot showing tier, distance to the standard and a
 contact-coach action, so no course content changes.
+
+**Landing page:** a frontend-base app declaring the `org.openedx.frontend.role.home` role, its tab
+appended to the header's `desktopPrimaryLinks` slot ahead of Courses and Discover. The shell
+resolves `/` from whichever app holds that role, so no core change and no redirect override.
+Outside the slice because tab and role ship as an npm package installed via `FRONTEND_APPS`.
 
 **Catalogue:** extend `frontend-app-catalog` (landed in Ulmo, in `tutor-mfe` v22 behind
 `ENABLE_CATALOG_MICROFRONTEND`). Track status is draft, announced, active or retired, so a
@@ -63,8 +68,8 @@ one adapter per vendor, idempotent on `(vendor, vendor_ref, learner)`. We keep t
 its grade, never the content.
 
 **Certificates and the feed:** grant on the standard, issue via credentials with the client's
-template through the endpoints `CatalogDataSynchronizer` expects; notifications ride the platform's
-notifications app; the program team reads the append-only activity table as a partner-scoped feed.
+template through the endpoints `CatalogDataSynchronizer` expects. Notifications ride the platform's
+notifications app; the program team reads the activity table as a partner-scoped feed.
 
 ## 3. Where the data lives
 
@@ -97,10 +102,6 @@ data policy and hand us a cross-partner correlation key we have no use for. What
 actually want is roster reconciliation against their HR system: an opaque per-partner external
 reference on the enrollment, owned by the partner, plus export keyed on it. If the ID itself is
 required, it belongs in its own table with its own retention rule and access log.
-
-**Accept with a caveat: dashboard as landing page.** It must be a route we own rather than a
-replacement of the platform default, so ordinary users still reach the standard dashboard and a
-Willow upgrade does not fight us.
 
 **Defer:** the vendor integration (contract-shaped, needs a real vendor), track authoring in
 Studio (admin suffices until tracks change weekly), personalised paths, nomination beyond bulk

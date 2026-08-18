@@ -12,7 +12,7 @@ flowchart TB
     subgraph browser["Learner and coach"]
         catalog["frontend-app-catalog<br/>Home / About / Catalog<br/><i>extended: track cards with tier + vendor</i>"]
         learning["frontend-app-learning<br/><i>plugin slot: tier, distance to standard,<br/>reach your coach</i>"]
-        dashboard["frontend-app-learner-dashboard<br/><i>frontend-base plugin:<br/>certification dashboard route</i>"]
+        dashboard["frontend-base shell<br/><i>our app holds role.home, so it owns /<br/>tab in header desktopPrimaryLinks,<br/>ahead of Courses and Discover</i>"]
     end
 
     subgraph lms["Open edX LMS (one process)"]
@@ -36,6 +36,22 @@ flowchart TB
     style app fill:#2d6a4f,color:#fff
     style discovery stroke-dasharray: 5 5,color:#888
 ```
+
+### The landing page, and why it is not in the slice
+
+The brief asks for the learner's landing page to be the certification dashboard. In frontend-base
+that needs no core change and no redirect override: an app declares the
+`org.openedx.frontend.role.home` role and the shell resolves `/` to it, while a nav tab is a widget
+appended to `org.openedx.frontend.slot.header.desktopPrimaryLinks.v1`, which is the same slot the
+shell's own `PrimaryNavLinks` uses for Courses and Discover.
+
+Both the role and the tab are contributed by an `App` config exported from an npm package, which
+Tutor installs through the `FRONTEND_APPS` filter. That package is a separate repo, so it is
+outside this plugin and outside this slice. Two caveats for whoever picks it up: Verawood ships the
+frontend-base `learner-dashboard` app as `enabled: False`, so the shell path is opt-in for now, and
+full MFE conversion to frontend-base is not expected until Xylon in June 2027. Until then the
+legacy equivalent is a `frontend-component-header` plugin slot, which needs an npm package just the
+same.
 
 The point of this picture is that our app and the platform are the same process. Every join the
 coach view needs is a local query, not a service call. That is the whole reason discovery is not
